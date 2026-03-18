@@ -29,20 +29,150 @@ import {
   CalendarRange,
   Database,
   RefreshCw,
-  Send
+  Send,
+  Ticket as TicketIcon,
+  AlertCircle,
+  Clock,
+  CheckCircle2,
+  Sun,
+  Moon
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Appointment, ExamType, Ticket, TicketStatus, TicketType } from './types';
 import { supabase } from './lib/supabase';
-import { Ticket as TicketIcon, AlertCircle, Clock, CheckCircle2 } from 'lucide-react';
 import { maskCPF, maskPhone, getSubject, generateRequestText, generateStudentText, validateCPF, validateRenach, normalizeString } from './utils/helpers';
 import { FormLabel, Checkbox, DetailItem, StatusBadge, StatCard } from './components/UIComponents';
 import { HomeView } from './components/HomeView';
+import { ThemeProvider, useTheme } from './contexts/ThemeContext';
 
-// Helper for masks
-// Removed local helpers, using src/utils/helpers.ts
+const ThemeToggle = () => {
+  const { isDark, toggleTheme } = useTheme();
+  
+  return (
+    <motion.button
+      onClick={toggleTheme}
+      className="relative p-2.5 rounded-xl transition-all shadow-sm overflow-hidden group"
+      whileHover={{ scale: 1.05 }}
+      whileTap={{ scale: 0.95 }}
+      title={isDark ? "Modo Claro" : "Modo Escuro"}
+    >
+      <div className={`absolute inset-0 bg-gradient-to-br ${
+        isDark 
+          ? 'from-purple-600/20 to-indigo-600/20' 
+          : 'from-amber-500/20 to-orange-500/20'
+      } group-hover:opacity-100 opacity-80 transition-opacity`} />
+      <div className="relative">
+        <AnimatePresence mode="wait">
+          {isDark ? (
+            <motion.div
+              key="moon"
+              initial={{ rotate: -90, opacity: 0, scale: 0.5 }}
+              animate={{ rotate: 0, opacity: 1, scale: 1 }}
+              exit={{ rotate: 90, opacity: 0, scale: 0.5 }}
+              transition={{ duration: 0.2 }}
+            >
+              <Moon className="w-5 h-5 text-indigo-400" />
+            </motion.div>
+          ) : (
+            <motion.div
+              key="sun"
+              initial={{ rotate: 90, opacity: 0, scale: 0.5 }}
+              animate={{ rotate: 0, opacity: 1, scale: 1 }}
+              exit={{ rotate: -90, opacity: 0, scale: 0.5 }}
+              transition={{ duration: 0.2 }}
+            >
+              <Sun className="w-5 h-5 text-amber-500" />
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+    </motion.button>
+  );
+};
 
-export default function App() {
+const NavButton: React.FC<{ 
+  active: boolean; 
+  onClick: () => void; 
+  isDark: boolean; 
+  badge?: number;
+  children: React.ReactNode;
+}> = ({ active, onClick, isDark, badge, children }) => (
+  <button 
+    onClick={onClick}
+    className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 whitespace-nowrap ${
+      active 
+        ? isDark 
+          ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg shadow-indigo-500/30' 
+          : 'bg-white text-indigo-600 shadow-lg shadow-indigo-100'
+        : isDark 
+          ? 'text-slate-400 hover:text-white hover:bg-slate-700/50' 
+          : 'text-slate-500 hover:text-slate-700 hover:bg-white/50'
+    }`}
+  >
+    {children}
+    {badge !== undefined && badge > 0 && (
+      <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-black ${
+        active 
+          ? 'bg-white/20 text-white' 
+          : isDark
+            ? 'bg-indigo-500/20 text-indigo-400'
+            : 'bg-indigo-100 text-indigo-600'
+      }`}>
+        {badge}
+      </span>
+    )}
+  </button>
+);
+
+const ActionButton: React.FC<{ 
+  onClick: () => void; 
+  isDark: boolean; 
+  isLoading?: boolean;
+  title: string;
+  isLabel?: boolean;
+  children: React.ReactNode;
+}> = ({ onClick, isDark, isLoading, title, isLabel, children }) => (
+  <button 
+    onClick={onClick}
+    disabled={isLoading}
+    className={`p-2.5 rounded-xl transition-all ${
+      isDark 
+        ? isLoading 
+          ? 'bg-slate-800 text-slate-600 cursor-not-allowed' 
+          : 'bg-slate-800/50 hover:bg-slate-700 text-slate-300 hover:text-indigo-400 active:scale-95 border border-slate-700/50'
+        : isLoading 
+          ? 'bg-slate-100 text-slate-400 cursor-not-allowed' 
+          : 'bg-slate-100 hover:bg-slate-200 text-slate-600 active:scale-95'
+    } ${isLabel ? 'cursor-pointer' : ''}`}
+    title={title}
+  >
+    {children}
+  </button>
+);
+
+const MobileNavButton: React.FC<{ 
+  active: boolean; 
+  onClick: () => void; 
+  isDark: boolean;
+  children: React.ReactNode;
+}> = ({ active, onClick, isDark, children }) => (
+  <button 
+    onClick={onClick}
+    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap flex items-center gap-1.5 ${
+      active 
+        ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg' 
+        : isDark 
+          ? 'bg-slate-800/50 text-slate-400 border border-slate-700/50' 
+          : 'bg-slate-100 text-slate-500'
+    }`}
+  >
+    {children}
+  </button>
+);
+
+function App() {
+  const { isDark } = useTheme();
+  
   // Load from localStorage on init
   const [appointments, setAppointments] = useState<Appointment[]>(() => {
     const saved = localStorage.getItem('detran_appointments');
@@ -229,7 +359,6 @@ export default function App() {
       console.log(`Cleaning up ${toDelete.length} duplicates...`);
       if (supabase) {
         try {
-          // Delete from Supabase
           const { error } = await supabase.from('appointments').delete().in('id', toDelete);
           if (error) console.error('Error deleting duplicates from Supabase:', error);
         } catch (e) {
@@ -238,8 +367,11 @@ export default function App() {
       }
       setAppointments(unique);
       setNotification({ message: `${toDelete.length} registros duplicados foram removidos automaticamente para manter a integridade do sistema.`, type: 'info' });
+      return unique;
+    } else {
+      setAppointments(data);
+      return data;
     }
-    return unique;
   };
 
   const fetchData = async (silent = false) => {
@@ -333,6 +465,12 @@ export default function App() {
   useEffect(() => {
     fetchData();
     
+    // Auto-refresh every 30 seconds
+    const autoRefreshInterval = setInterval(() => {
+      console.log('Auto-refresh: fetching data...');
+      fetchData(true);
+    }, 30000);
+    
     // Refresh on window focus
     const handleFocus = () => {
       console.log('Window focused, refreshing data...');
@@ -369,11 +507,17 @@ export default function App() {
         });
 
       return () => {
+        clearInterval(autoRefreshInterval);
         window.removeEventListener('focus', handleFocus);
         supabase.removeChannel(appointmentsChannel);
         supabase.removeChannel(ticketsChannel);
       };
     }
+    
+    return () => {
+      clearInterval(autoRefreshInterval);
+      window.removeEventListener('focus', handleFocus);
+    };
   }, []);
 
   // Save to localStorage as backup
@@ -405,12 +549,18 @@ export default function App() {
   }, [appointments.length, todayStr]);
 
   const stats = useMemo(() => {
-    const total = appointments.length;
-    const confirmados = appointments.filter(app => app.isConfirmed).length;
-    const naoConfirmados = appointments.filter(app => !app.isConfirmed).length;
-    const vencidos = appointments.filter(app => app.appointmentDate < todayStr && !app.isConfirmed).length;
-    const sgaCrt = appointments.filter(app => app.hasSgaCrtCall).length;
-    return { total, confirmados, naoConfirmados, vencidos, sgaCrt };
+    let total = 0, confirmados = 0, naoConfirmados = 0, vencidos = 0, sgaCrt = 0, requestSent = 0;
+    
+    for (const app of appointments) {
+      total++;
+      if (app.isConfirmed) confirmados++;
+      else naoConfirmados++;
+      if (app.appointmentDate < todayStr && !app.isConfirmed) vencidos++;
+      if (app.hasSgaCrtCall) sgaCrt++;
+      if (app.isRequestSent) requestSent++;
+    }
+    
+    return { total, confirmados, naoConfirmados, vencidos, sgaCrt, requestSent };
   }, [appointments, todayStr]);
 
   const unconfirmedToday = useMemo(() => {
@@ -420,39 +570,51 @@ export default function App() {
   const appointmentsByDate = useMemo(() => {
     const groups: Record<string, { date: string, count: number, confirmed: number }> = {};
     
-    appointments.forEach(app => {
-      if (!groups[app.appointmentDate]) {
-        groups[app.appointmentDate] = { date: app.appointmentDate, count: 0, confirmed: 0 };
+    for (const app of appointments) {
+      const date = app.appointmentDate;
+      if (!groups[date]) {
+        groups[date] = { date, count: 0, confirmed: 0 };
       }
-      groups[app.appointmentDate].count++;
-      if (app.isConfirmed) groups[app.appointmentDate].confirmed++;
-    });
+      groups[date].count++;
+      if (app.isConfirmed) groups[date].confirmed++;
+    }
 
     return Object.values(groups).sort((a, b) => b.date.localeCompare(a.date));
   }, [appointments]);
 
   const filteredAppointments = useMemo(() => {
     const normalizedSearch = normalizeString(searchTerm);
+    const searchDigits = normalizedSearch.replace(/\D/g, '');
     
-    return appointments.filter(app => {
-      // Search filter
-      const matchesSearch = normalizeString(app.fullName).includes(normalizedSearch) ||
-        app.cpf.replace(/\D/g, '').includes(normalizedSearch) ||
-        normalizeString(app.renach).includes(normalizedSearch);
-      
-      if (!matchesSearch) return false;
+    let result = appointments;
+    
+    if (normalizedSearch) {
+      result = result.filter(app => 
+        normalizeString(app.fullName).includes(normalizedSearch) ||
+        (searchDigits.length > 0 && app.cpf.replace(/\D/g, '').includes(searchDigits)) ||
+        normalizeString(app.renach).includes(normalizedSearch)
+      );
+    }
 
-      // Category filter
-      if (activeFilter === 'confirmed') return app.isConfirmed;
-      if (activeFilter === 'unconfirmed') return !app.isConfirmed;
-      if (activeFilter === 'expired') {
-        return app.appointmentDate < todayStr && !app.isConfirmed;
-      }
-      if (activeFilter === 'sga_crt') return app.hasSgaCrtCall;
-      if (activeFilter === 'request_sent') return app.isRequestSent;
-      
-      return true;
-    }).sort((a, b) => {
+    switch (activeFilter) {
+      case 'confirmed':
+        result = result.filter(app => app.isConfirmed);
+        break;
+      case 'unconfirmed':
+        result = result.filter(app => !app.isConfirmed);
+        break;
+      case 'expired':
+        result = result.filter(app => app.appointmentDate < todayStr && !app.isConfirmed);
+        break;
+      case 'sga_crt':
+        result = result.filter(app => app.hasSgaCrtCall);
+        break;
+      case 'request_sent':
+        result = result.filter(app => app.isRequestSent);
+        break;
+    }
+    
+    return result.sort((a, b) => {
       if (sortBy === 'alphabetical') {
         return a.fullName.localeCompare(b.fullName);
       }
@@ -461,14 +623,16 @@ export default function App() {
   }, [appointments, searchTerm, activeFilter, todayStr, sortBy]);
 
   const filteredTickets = useMemo(() => {
+    if (!searchTerm) return tickets;
     const normalizedSearch = normalizeString(searchTerm);
+    const searchDigits = normalizedSearch.replace(/\D/g, '');
     
-    return tickets.filter(ticket => {
-      return normalizeString(ticket.studentName).includes(normalizedSearch) ||
-        ticket.studentCpf.replace(/\D/g, '').includes(normalizedSearch) ||
-        normalizeString(ticket.studentRenach).includes(normalizedSearch) ||
-        normalizeString(ticket.description).includes(normalizedSearch);
-    });
+    return tickets.filter(ticket => 
+      normalizeString(ticket.studentName).includes(normalizedSearch) ||
+      (searchDigits.length > 0 && ticket.studentCpf.replace(/\D/g, '').includes(searchDigits)) ||
+      normalizeString(ticket.studentRenach).includes(normalizedSearch) ||
+      normalizeString(ticket.description).includes(normalizedSearch)
+    );
   }, [tickets, searchTerm]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -716,21 +880,22 @@ export default function App() {
     setIsDeleting(id);
 
     try {
-      // 1. Local removal first for instant UI response
+      // 1. Delete from Supabase FIRST
+      if (supabase) {
+        // Delete linked tickets first (to avoid foreign key constraint errors)
+        const { error: tError } = await supabase.from('tickets').delete().eq('appointmentId', id);
+        if (tError) console.warn('Erro ao limpar tickets:', tError);
+
+        // Delete the appointment
+        const { error: aError } = await supabase.from('appointments').delete().eq('id', id);
+        if (aError) throw aError;
+      }
+
+      // 2. Update local state only AFTER Supabase delete succeeds
       setAppointments(prev => prev.filter(a => a.id !== id));
       setTickets(prev => prev.filter(t => t.appointmentId !== id));
       if (selectedAppointment?.id === id) {
         setSelectedAppointment(null);
-      }
-
-      if (supabase) {
-        // 2. Delete linked tickets first (to avoid foreign key constraint errors)
-        const { error: tError } = await supabase.from('tickets').delete().eq('appointmentId', id);
-        if (tError) console.warn('Erro ao limpar tickets:', tError);
-
-        // 3. Delete the appointment
-        const { error: aError } = await supabase.from('appointments').delete().eq('id', id);
-        if (aError) throw aError;
       }
 
       setNotification({ message: `Candidato(a) ${fullName} excluído(a) com sucesso.`, type: 'success' });
@@ -1165,9 +1330,20 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] text-[#1E293B] font-sans">
-      {/* Header */}
-      <header className="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
+    <div className="min-h-screen text-[#1E293B] font-sans">
+      {/* Modern Header - Dark Mode Optimized */}
+      <header className={`sticky top-0 z-30 transition-all duration-300 ${
+        isDark 
+          ? 'bg-slate-900/95 backdrop-blur-xl border-b border-slate-700/50 shadow-2xl shadow-black/30' 
+          : 'bg-white/80 backdrop-blur-xl border-b border-slate-200/50 shadow-lg shadow-slate-200/20'
+      }`}>
+        {/* Gradient accent line */}
+        <div className={`h-0.5 bg-gradient-to-r ${
+          isDark 
+            ? 'from-indigo-500 via-purple-500 to-pink-500' 
+            : 'from-indigo-400 via-purple-400 to-pink-400'
+        }`} />
+        
         <AnimatePresence>
           {notification && (
             <motion.div
@@ -1176,14 +1352,14 @@ export default function App() {
               exit={{ opacity: 0, y: -20, x: '-50%' }}
               className="fixed left-1/2 top-20 z-50 pointer-events-none"
             >
-              <div className={`px-6 py-3 rounded-2xl shadow-2xl border flex items-center gap-3 backdrop-blur-md ${
+              <div className={`px-6 py-3 rounded-2xl shadow-xl border backdrop-blur-md ${
                 notification.type === 'error' 
-                  ? 'bg-red-50 border-red-100 text-red-700' 
+                  ? 'bg-red-500/90 border-red-200 text-white' 
                   : notification.type === 'warning'
-                  ? 'bg-orange-50 border-orange-100 text-orange-700'
+                  ? 'bg-amber-500/90 border-amber-200 text-white'
                   : notification.type === 'info'
-                  ? 'bg-blue-50 border-blue-100 text-blue-700'
-                  : 'bg-emerald-50 border-emerald-100 text-emerald-700'
+                  ? 'bg-blue-500/90 border-blue-200 text-white'
+                  : 'bg-emerald-500/90 border-emerald-200 text-white'
               }`}>
                 {notification.type === 'error' ? <XCircle className="w-5 h-5" /> : 
                  notification.type === 'warning' ? <AlertCircle className="w-5 h-5" /> :
@@ -1194,140 +1370,251 @@ export default function App() {
             </motion.div>
           )}
         </AnimatePresence>
+        
         <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between gap-2 sm:gap-4">
-          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-            <div className="bg-indigo-600 p-1.5 sm:p-2 rounded-lg sm:rounded-xl shadow-indigo-100 shadow-lg hidden xs:block">
-              <ClipboardCheck className="text-white w-4 h-4 sm:w-5 h-5" />
+          {/* Logo & Brand */}
+          <div className="flex items-center gap-3 shrink-0">
+            <div className="relative">
+              <div className={`w-11 h-11 rounded-2xl flex items-center justify-center shadow-lg transition-all ${
+                isDark 
+                  ? 'bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-600 shadow-indigo-500/40' 
+                  : 'bg-gradient-to-br from-indigo-500 to-purple-600 shadow-lg shadow-indigo-500/30'
+              }`}>
+                <ClipboardCheck className="text-white w-5 h-5" />
+              </div>
+              {/* Glow effect */}
+              <div className={`absolute -inset-1 rounded-2xl blur-md opacity-30 ${
+                isDark ? 'bg-gradient-to-br from-indigo-500 to-purple-500' : 'bg-gradient-to-br from-indigo-400 to-purple-400'
+              } -z-10`} />
+              <div className={`absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 ${
+                isDark ? 'border-slate-800' : 'border-white'
+              } ${
+                dbStatus === 'connected' ? 'bg-emerald-500 shadow-lg shadow-emerald-500/50' : 
+                dbStatus === 'error' ? 'bg-red-500' : isDark ? 'bg-slate-600' : 'bg-slate-300'
+              } ${dbStatus === 'connected' ? 'animate-pulse' : ''}`} />
             </div>
-            <div>
-              <h1 className="text-sm sm:text-lg font-bold tracking-tight leading-tight">DETRAN</h1>
+            <div className="hidden sm:block">
+              <h1 className={`text-base sm:text-lg font-black tracking-tight ${
+                isDark 
+                  ? 'bg-gradient-to-r from-white via-indigo-200 to-purple-200 bg-clip-text text-transparent' 
+                  : 'bg-gradient-to-r from-slate-900 to-slate-600 bg-clip-text text-transparent'
+              }`}>
+                DETRAN-BA
+              </h1>
               <div className="flex items-center gap-1.5">
-                <div className="flex items-center gap-1 px-1 py-0.5 rounded-full bg-slate-50 border border-slate-100">
-                  <div className={`w-1 h-1 sm:w-1.5 sm:h-1.5 rounded-full ${
-                    dbStatus === 'connected' ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)] animate-pulse' : 
-                    dbStatus === 'error' ? 'bg-red-500' : 'bg-slate-300'
-                  }`} />
-                  <span className="text-[7px] sm:text-[8px] font-black text-slate-400 uppercase tracking-tighter">
-                    {dbStatus === 'connected' ? 'Realtime ON' : 
-                     dbStatus === 'error' ? 'Erro DB' : 'Offline'}
-                  </span>
-                  {dbStatus === 'error' && (
-                    <button 
-                      onClick={() => fetchData()}
-                      className="ml-1 p-0.5 hover:bg-slate-200 rounded transition-colors"
-                      title="Tentar novamente"
-                    >
-                      <RefreshCw className="w-2 h-2 text-slate-400" />
-                    </button>
-                  )}
-                </div>
+                <span className={`w-1.5 h-1.5 rounded-full ${
+                  dbStatus === 'connected' ? 'bg-emerald-500' : 
+                  dbStatus === 'error' ? 'bg-red-500' : isDark ? 'bg-slate-600' : 'bg-slate-400'
+                } ${dbStatus === 'connected' ? 'animate-pulse' : ''}`} />
+                <span className={`text-[9px] font-bold uppercase tracking-wider ${
+                  dbStatus === 'connected' 
+                    ? isDark ? 'text-emerald-400' : 'text-emerald-600'
+                    : dbStatus === 'error' 
+                      ? 'text-red-400' 
+                      : isDark ? 'text-slate-500' : 'text-slate-400'
+                }`}>
+                  {dbStatus === 'connected' ? 'Conectado' : 
+                   dbStatus === 'error' ? 'Erro' : 'Offline'}
+                </span>
+                {dbStatus === 'error' && (
+                  <button 
+                    onClick={() => fetchData()}
+                    className={`p-0.5 rounded transition-colors ${isDark ? 'hover:bg-slate-700' : 'hover:bg-slate-200'}`}
+                    title="Tentar novamente"
+                  >
+                    <RefreshCw className={`w-3 h-3 ${isDark ? 'text-red-400' : 'text-red-500'}`} />
+                  </button>
+                )}
               </div>
             </div>
           </div>
 
-          <nav className="hidden md:flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200">
-            <button 
+          {/* Navigation - Desktop */}
+          <nav className={`hidden md:flex items-center gap-1 p-1 rounded-2xl transition-all ${
+            isDark 
+              ? 'bg-slate-800/50 backdrop-blur-sm border border-slate-700/50' 
+              : 'bg-slate-100/50 backdrop-blur-sm border border-slate-200/50'
+          }`}>
+            <NavButton 
+              active={currentView === 'home'} 
               onClick={() => setCurrentView('home')}
-              className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-2 ${
-                currentView === 'home' 
-                  ? 'bg-white text-indigo-600 shadow-sm' 
-                  : 'text-slate-500 hover:text-slate-700'
-              }`}
+              isDark={isDark}
             >
-              <Home className="w-3.5 h-3.5" />
-              Início
-            </button>
-            <button 
+              <Home className="w-4 h-4" />
+              <span>Início</span>
+            </NavButton>
+            <NavButton 
+              active={currentView === 'appointments'} 
               onClick={() => setCurrentView('appointments')}
-              className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-2 ${
-                currentView === 'appointments' 
-                  ? 'bg-white text-indigo-600 shadow-sm' 
-                  : 'text-slate-500 hover:text-slate-700'
-              }`}
+              isDark={isDark}
+              badge={stats.total}
             >
-              <Calendar className="w-3.5 h-3.5" />
-              Agendamentos
-            </button>
-            <button 
+              <Calendar className="w-4 h-4" />
+              <span>Agendamentos</span>
+            </NavButton>
+            <NavButton 
+              active={currentView === 'tickets'} 
               onClick={() => setCurrentView('tickets')}
-              className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-2 ${
-                currentView === 'tickets' 
-                  ? 'bg-white text-indigo-600 shadow-sm' 
-                  : 'text-slate-500 hover:text-slate-700'
-              }`}
+              isDark={isDark}
             >
-              <TicketIcon className="w-3.5 h-3.5" />
-              Central de Chamados
-            </button>
+              <TicketIcon className="w-4 h-4" />
+              <span>Chamados</span>
+            </NavButton>
           </nav>
 
-          <div className="flex-1 max-w-md hidden lg:block">
-            <div className="relative group">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4 group-focus-within:text-indigo-600 transition-colors" />
+          {/* Search - Desktop */}
+          <div className="flex-1 max-w-md hidden lg:block mx-4">
+            <div className={`relative group rounded-xl transition-all ${
+              isDark 
+                ? 'bg-slate-800/50 border border-slate-700/50 focus-within:border-indigo-500/50' 
+                : 'bg-slate-100/50 border border-slate-200/50 focus-within:border-indigo-500/50'
+            }`}>
+              <Search className={`absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 transition-colors ${
+                isDark ? 'text-slate-500 group-focus-within:text-indigo-400' : 'text-slate-400 group-focus-within:text-indigo-500'
+              }`} />
               <input 
                 type="text" 
                 placeholder="Buscar por nome, CPF ou RENACH..." 
-                className="w-full pl-10 pr-10 py-2 bg-slate-100 border-transparent rounded-2xl text-sm focus:bg-white focus:ring-2 focus:ring-indigo-500 transition-all outline-none border border-slate-200"
+                className={`w-full pl-11 pr-10 py-2.5 rounded-xl text-sm outline-none transition-all ${
+                  isDark 
+                    ? 'bg-transparent text-slate-100 placeholder:text-slate-500' 
+                    : 'bg-transparent text-slate-900 placeholder:text-slate-400'
+                }`}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
               {searchTerm && (
                 <button 
                   onClick={() => setSearchTerm('')}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-indigo-600 transition-colors p-1 hover:bg-slate-200 rounded-full"
+                  className={`absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-full transition-colors ${
+                    isDark ? 'hover:bg-slate-700 text-slate-400 hover:text-indigo-400' : 'hover:bg-slate-200 text-slate-400 hover:text-indigo-500'
+                  }`}
                   title="Limpar busca"
                 >
-                  <X className="w-3.5 h-3.5" />
+                  <X className="w-4 h-4" />
                 </button>
               )}
             </div>
           </div>
 
-          <div className="flex items-center gap-1.5 sm:gap-2">
-            <div className="flex items-center gap-1 sm:gap-2 mr-0.5 sm:mr-2 sm:border-r border-slate-200 sm:pr-4">
-              <button 
-                onClick={fetchData}
-                className="bg-slate-100 hover:bg-slate-200 text-slate-600 p-2 rounded-lg sm:rounded-2xl transition-all active:scale-95"
-                title="Sincronizar"
+          {/* Actions */}
+          <div className="flex items-center gap-1.5">
+            <ThemeToggle />
+            <ActionButton 
+              onClick={fetchData} 
+              isDark={isDark} 
+              isLoading={isLoading}
+              title="Sincronizar dados"
+            >
+              <RefreshCw className={`w-5 h-5 ${isLoading ? 'animate-spin' : ''}`} />
+            </ActionButton>
+            <ActionButton 
+              onClick={() => setIsAgendaOpen(true)} 
+              isDark={isDark}
+              title="Ver Agenda"
+            >
+              <CalendarRange className="w-5 h-5" />
+            </ActionButton>
+            <div className={`hidden md:flex items-center gap-2 ml-2 pl-4 ${
+              isDark ? 'border-l border-slate-700' : 'border-l border-slate-200'
+            }`}>
+              <ActionButton 
+                onClick={() => {}} 
+                isDark={isDark}
+                title="Importar Backup"
+                isLabel
               >
-                <RefreshCw className={`w-4 h-4 sm:w-5 h-5 ${isLoading ? 'animate-spin' : ''}`} />
-              </button>
-              <button 
-                onClick={() => setIsAgendaOpen(true)}
-                className="bg-slate-100 hover:bg-slate-200 text-slate-600 p-2 rounded-lg sm:rounded-2xl transition-all active:scale-95"
-                title="Ver Agenda"
+                <Upload className="w-5 h-5" />
+                <input type="file" accept=".json" onChange={importData} className="hidden" />
+              </ActionButton>
+              <ActionButton 
+                onClick={exportData} 
+                isDark={isDark}
+                title="Exportar Backup"
               >
-                <CalendarRange className="w-4 h-4 sm:w-5 h-5" />
-              </button>
-              <div className="hidden md:flex items-center gap-2">
-                <label className="cursor-pointer bg-slate-100 hover:bg-slate-200 text-slate-600 p-2.5 rounded-2xl transition-all active:scale-95" title="Importar Backup">
-                  <Upload className="w-5 h-5" />
-                  <input type="file" accept=".json" onChange={importData} className="hidden" />
-                </label>
-                <button 
-                  onClick={exportData}
-                  className="bg-slate-100 hover:bg-slate-200 text-slate-600 p-2.5 rounded-2xl transition-all active:scale-95"
-                  title="Exportar Backup"
-                >
-                  <Download className="w-5 h-5" />
-                </button>
-              </div>
+                <Download className="w-5 h-5" />
+              </ActionButton>
             </div>
+          </div>
+        </div>
+        
+        {/* Mobile Navigation */}
+        <div className={`md:hidden px-4 py-2 flex items-center gap-2 overflow-x-auto ${
+          isDark ? 'border-t border-slate-700/50' : 'border-t border-slate-100'
+        }`}>
+          <MobileNavButton 
+            active={currentView === 'home'} 
+            onClick={() => setCurrentView('home')}
+            isDark={isDark}
+          >
+            <Home className="w-3.5 h-3.5" />
+            <span>Início</span>
+          </MobileNavButton>
+          <MobileNavButton 
+            active={currentView === 'appointments'} 
+            onClick={() => setCurrentView('appointments')}
+            isDark={isDark}
+          >
+            <Calendar className="w-3.5 h-3.5" />
+            <span>Agendamentos</span>
+          </MobileNavButton>
+          <MobileNavButton 
+            active={currentView === 'tickets'} 
+            onClick={() => setCurrentView('tickets')}
+            isDark={isDark}
+          >
+            <TicketIcon className="w-3.5 h-3.5" />
+            <span>Chamados</span>
+          </MobileNavButton>
+        </div>
+        
+        {/* Mobile Search */}
+        <div className="lg:hidden px-4 pb-3">
+          <div className={`relative rounded-xl transition-all ${
+            isDark 
+              ? 'bg-slate-800/50 border border-slate-700/50' 
+              : 'bg-slate-100/50 border border-slate-200/50'
+          }`}>
+            <Search className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 ${isDark ? 'text-slate-500' : 'text-slate-400'}`} />
+            <input 
+              type="text" 
+              placeholder="Buscar por nome, CPF ou RENACH..." 
+              className={`w-full pl-9 pr-9 py-2.5 rounded-xl text-sm outline-none transition-all ${
+                isDark 
+                  ? 'bg-transparent text-slate-100 placeholder:text-slate-500' 
+                  : 'bg-transparent text-slate-900 placeholder:text-slate-400'
+              }`}
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+            {searchTerm && (
+              <button 
+                onClick={() => setSearchTerm('')}
+                className={`absolute right-2 top-1/2 -translate-y-1/2 p-1 ${
+                  isDark ? 'text-slate-400 hover:text-indigo-400' : 'text-slate-400 hover:text-indigo-500'
+                }`}
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
           </div>
         </div>
       </header>
 
+      {/* Alert Banner */}
       {unconfirmedToday.length > 0 && (
-        <div className="bg-red-600 text-white py-2 px-4 shadow-lg relative z-20 overflow-hidden">
+        <div className="bg-gradient-to-r from-red-600 to-rose-600 text-white py-2.5 px-4 shadow-lg relative z-20 overflow-hidden">
           <motion.div 
-            initial={{ x: '100%' }}
-            animate={{ x: '-100%' }}
+            animate={{ x: ['0%', '-50%'] }}
             transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
-            className="whitespace-nowrap flex items-center gap-8 font-black text-[11px] uppercase tracking-[0.2em]"
+            className="whitespace-nowrap flex items-center gap-8 font-bold text-xs uppercase tracking-wider"
           >
-            <span className="flex items-center gap-2"><XCircle className="w-4 h-4" /> ATENÇÃO: {unconfirmedToday.length} AGENDAMENTO(S) PARA HOJE NÃO FORAM CONFIRMADOS! SOLICITE UMA NOVA DATA IMEDIATAMENTE.</span>
-            <span className="flex items-center gap-2"><XCircle className="w-4 h-4" /> ATENÇÃO: {unconfirmedToday.length} AGENDAMENTO(S) PARA HOJE NÃO FORAM CONFIRMADOS! SOLICITE UMA NOVA DATA IMEDIATAMENTE.</span>
-            <span className="flex items-center gap-2"><XCircle className="w-4 h-4" /> ATENÇÃO: {unconfirmedToday.length} AGENDAMENTO(S) PARA HOJE NÃO FORAM CONFIRMADOS! SOLICITE UMA NOVA DATA IMEDIATAMENTE.</span>
+            {[1, 2, 3].map((i) => (
+              <span key={i} className="flex items-center gap-2">
+                <XCircle className="w-4 h-4" /> 
+                ATENÇÃO: {unconfirmedToday.length} AGENDAMENTO(S) PARA HOJE NÃO CONFIRMADOS
+              </span>
+            ))}
           </motion.div>
         </div>
       )}
@@ -1347,8 +1634,8 @@ export default function App() {
             {/* Appointments Header */}
             <div className="col-span-1 lg:col-span-12 flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-2">
               <div>
-                <h2 className="text-2xl font-bold text-slate-900">Gestão de Agendamentos</h2>
-                <p className="text-sm text-slate-500">Acompanhe e organize as solicitações de exames.</p>
+                <h2 className={`text-2xl font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>Gestão de Agendamentos</h2>
+                <p className={`text-sm ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Acompanhe e organize as solicitações de exames.</p>
               </div>
               <motion.button 
                 whileHover={{ scale: 1.05, x: 5 }}
@@ -1357,7 +1644,7 @@ export default function App() {
                   resetForm();
                   setIsFormOpen(true);
                 }}
-                className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-2xl font-bold flex items-center justify-center gap-2 transition-all shadow-lg shadow-indigo-100"
+                className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white px-6 py-3 rounded-2xl font-bold flex items-center justify-center gap-2 transition-all shadow-lg shadow-indigo-500/30"
               >
                 <Plus className="w-5 h-5" />
                 Novo Agendamento
@@ -1365,55 +1652,32 @@ export default function App() {
             </div>
 
             {/* Stats Section */}
-            <div className="col-span-1 lg:col-span-12 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-2">
-              <StatCard 
-                label="Total" 
-                value={stats.total} 
-                icon={<LayoutDashboard className="w-4 h-4" />} 
-                color="indigo" 
-                isActive={activeFilter === 'all'}
-                onClick={() => setActiveFilter('all')}
-              />
-              <StatCard 
-                label="Confirmados" 
-                value={stats.confirmados} 
-                icon={<ClipboardCheck className="w-4 h-4" />} 
-                color="blue" 
-                isActive={activeFilter === 'confirmed'}
-                onClick={() => setActiveFilter('confirmed')}
-              />
-              <StatCard 
-                label="Não Confirmados" 
-                value={stats.naoConfirmados} 
-                icon={<XCircle className="w-4 h-4" />} 
-                color="red" 
-                isActive={activeFilter === 'unconfirmed'}
-                onClick={() => setActiveFilter('unconfirmed')}
-              />
-              <StatCard 
-                label="Data Vencida" 
-                value={stats.vencidos} 
-                icon={<CalendarRange className="w-4 h-4" />} 
-                color="amber" 
-                isActive={activeFilter === 'expired'}
-                onClick={() => setActiveFilter('expired')}
-              />
-              <StatCard 
-                label="Chamados SGA/CRT" 
-                value={stats.sgaCrt} 
-                icon={<Database className="w-4 h-4" />} 
-                color="emerald" 
-                isActive={activeFilter === 'sga_crt'}
-                onClick={() => setActiveFilter('sga_crt')}
-              />
-              <StatCard 
-                label="Pedidos Enviados" 
-                value={appointments.filter(a => a.isRequestSent).length} 
-                icon={<Send className="w-4 h-4" />} 
-                color="indigo" 
-                isActive={activeFilter === 'request_sent'}
-                onClick={() => setActiveFilter('request_sent')}
-              />
+            <div className="col-span-1 lg:col-span-12 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-2">
+              {[
+                { label: 'Total', value: stats.total, color: 'indigo', filter: 'all' },
+                { label: 'Confirmados', value: stats.confirmados, color: 'emerald', filter: 'confirmed' },
+                { label: 'Pendentes', value: stats.naoConfirmados, color: 'amber', filter: 'unconfirmed' },
+                { label: 'Vencidos', value: stats.vencidos, color: 'rose', filter: 'expired' },
+                { label: 'SGA/CRT', value: stats.sgaCrt, color: 'purple', filter: 'sga_crt' },
+                { label: 'Enviados', value: stats.requestSent, color: 'cyan', filter: 'request_sent' },
+              ].map((stat) => (
+                <button
+                  key={stat.filter}
+                  onClick={() => setActiveFilter(stat.filter as typeof activeFilter)}
+                  className={`p-4 rounded-2xl border transition-all text-left ${
+                    activeFilter === stat.filter
+                      ? isDark
+                        ? 'bg-slate-800/80 border-indigo-500 shadow-lg shadow-indigo-500/20'
+                        : 'bg-white border-indigo-500 shadow-lg shadow-indigo-100'
+                      : isDark
+                        ? 'bg-slate-800/50 border-slate-700 hover:border-slate-600'
+                        : 'bg-white border-slate-200 hover:border-slate-300'
+                  }`}
+                >
+                  <p className={`text-2xl font-black ${isDark ? 'text-white' : 'text-slate-900'}`}>{stat.value}</p>
+                  <p className={`text-[10px] font-bold uppercase tracking-wider ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{stat.label}</p>
+                </button>
+              ))}
             </div>
 
             {/* Mobile Search */}
@@ -1442,22 +1706,34 @@ export default function App() {
             {/* List Section */}
             <div className="lg:col-span-7 space-y-4">
               <div className="flex items-center justify-between px-2">
-                <h2 className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                <h2 className={`text-xs font-bold uppercase tracking-widest flex items-center gap-2 ${
+                  isDark ? 'text-slate-400' : 'text-slate-400'
+                }`}>
                   <Calendar className="w-3 h-3" />
                   Agendamentos Recentes
                   {activeFilter !== 'all' && (
-                    <span className="ml-2 px-2 py-0.5 bg-indigo-100 text-indigo-600 rounded-full text-[9px] font-black">
+                    <span className={`ml-2 px-2 py-0.5 rounded-full text-[9px] font-black ${
+                      isDark 
+                        ? 'bg-indigo-500/20 text-indigo-400' 
+                        : 'bg-indigo-100 text-indigo-600'
+                    }`}>
                       {activeFilter === 'confirmed' ? 'Confirmados' : activeFilter === 'expired' ? 'Data Vencida' : 'SGA/CRT'}
                     </span>
                   )}
                 </h2>
 
                 <div className="flex items-center gap-2">
-                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest hidden sm:inline">Ordenar:</span>
+                  <span className={`text-[10px] font-black uppercase tracking-widest hidden sm:inline ${
+                    isDark ? 'text-slate-500' : 'text-slate-400'
+                  }`}>Ordenar:</span>
                   <select 
                     value={sortBy}
                     onChange={(e) => setSortBy(e.target.value as 'recent' | 'alphabetical')}
-                    className="text-[10px] font-bold text-slate-600 bg-slate-100 border-none rounded-lg px-2 py-1 outline-none cursor-pointer hover:bg-slate-200 transition-colors"
+                    className={`text-[10px] font-bold rounded-lg px-2 py-1 outline-none cursor-pointer transition-colors ${
+                      isDark 
+                        ? 'bg-slate-800 text-slate-300 border border-slate-700 hover:bg-slate-700' 
+                        : 'bg-slate-100 text-slate-600 border-none hover:bg-slate-200'
+                    }`}
                   >
                     <option value="recent">Recentes</option>
                     <option value="alphabetical">A-Z</option>
@@ -1467,7 +1743,9 @@ export default function App() {
 
               <div className="space-y-3">
                 {isLoading ? (
-                  <div className="flex flex-col items-center justify-center py-20 text-slate-400 gap-4">
+                  <div className={`flex flex-col items-center justify-center py-20 gap-4 ${
+                    isDark ? 'text-slate-400' : 'text-slate-400'
+                  }`}>
                     <div className="w-10 h-10 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin" />
                     <p className="text-sm font-medium">Carregando agendamentos...</p>
                   </div>
@@ -1482,143 +1760,207 @@ export default function App() {
                           animate={{ opacity: 1, y: 0 }}
                           exit={{ opacity: 0, scale: 0.95 }}
                           onClick={() => setSelectedAppointment(app)}
-                          className={`group bg-white p-4 rounded-2xl border transition-all cursor-pointer hover:shadow-md relative overflow-hidden ${
+                          className={`group p-4 rounded-2xl border transition-all cursor-pointer relative overflow-hidden ${
                             selectedAppointment?.id === app.id 
-                              ? 'border-indigo-500 ring-1 ring-indigo-500' 
-                              : 'border-slate-200 hover:border-slate-300'
+                              ? isDark
+                                ? 'bg-slate-800/80 border-indigo-500 ring-1 ring-indigo-500 shadow-lg shadow-indigo-500/10'
+                                : 'bg-white border-indigo-500 ring-1 ring-indigo-500 shadow-lg'
+                              : isDark
+                                ? 'bg-slate-800/60 border-slate-700 hover:border-slate-600 hover:bg-slate-800/80'
+                                : 'bg-white border-slate-200 hover:border-slate-300 hover:shadow-md'
                           }`}
                         >
                           <div className="flex items-start justify-between relative z-10">
                             <div className="flex gap-4">
                               <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 shadow-sm ${
-                                app.examType === 'Legislação' ? 'bg-amber-50 text-amber-600' : 'bg-emerald-50 text-emerald-600'
+                                app.examType === 'Legislação' 
+                                  ? isDark ? 'bg-amber-500/20 text-amber-400' : 'bg-amber-50 text-amber-600'
+                                  : isDark ? 'bg-emerald-500/20 text-emerald-400' : 'bg-emerald-50 text-emerald-600'
                               }`}>
                                 {app.examType === 'Legislação' ? <FileText className="w-6 h-6" /> : <MapPin className="w-6 h-6" />}
                               </div>
                               <div>
-                                <h3 className="font-bold text-slate-900 group-hover:text-indigo-600 transition-colors">
+                                <h3 className={`font-bold group-hover:text-indigo-400 transition-colors ${
+                                  isDark ? 'text-white' : 'text-slate-900'
+                                }`}>
                                   {app.fullName}
                                 </h3>
-                                <p className="text-[10px] font-bold text-indigo-500 uppercase tracking-wider mt-0.5">
+                                <p className={`text-[10px] font-bold uppercase tracking-wider mt-0.5 ${
+                                  isDark ? 'text-indigo-400' : 'text-indigo-500'
+                                }`}>
                                   {app.renach}
                                 </p>
                                 <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2">
-                                  <span className="text-xs text-slate-500 flex items-center gap-1.5 font-medium">
-                                    <User className="w-3 h-3 text-slate-400" /> {app.cpf}
+                                  <span className={`text-xs flex items-center gap-1.5 font-medium ${
+                                    isDark ? 'text-slate-400' : 'text-slate-500'
+                                  }`}>
+                                    <User className={`w-3 h-3 ${isDark ? 'text-slate-500' : 'text-slate-400'}`} /> {app.cpf}
                                   </span>
-                                  <span className="text-xs text-slate-500 flex items-center gap-1.5 font-medium">
-                                    <Calendar className="w-3 h-3 text-slate-400" /> {new Date(app.appointmentDate + 'T12:00:00').toLocaleDateString('pt-BR')}
+                                  <span className={`text-xs flex items-center gap-1.5 font-medium ${
+                                    isDark ? 'text-slate-400' : 'text-slate-500'
+                                  }`}>
+                                    <Calendar className={`w-3 h-3 ${isDark ? 'text-slate-500' : 'text-slate-400'}`} /> {new Date(app.appointmentDate + 'T12:00:00').toLocaleDateString('pt-BR')}
                                   </span>
                                 </div>
-                                <div className="mt-2 text-[10px] text-slate-400 flex flex-col gap-0.5 italic">
+                                <div className={`mt-2 text-[10px] flex flex-col gap-0.5 ${
+                                  isDark ? 'text-slate-500 italic' : 'text-slate-400 italic'
+                                }`}>
                                   <div className="flex items-center gap-1.5">
-                                    <Clock className="w-3 h-3" /> Lançado em: {new Date(app.createdAt).toLocaleString('pt-BR')}
+                                    <Clock className={`w-3 h-3 ${isDark ? 'text-slate-600' : 'text-slate-400'}`} /> Lançado em: {new Date(app.createdAt).toLocaleString('pt-BR')}
                                   </div>
-                                  <div className="flex items-center gap-1.5 text-indigo-400 font-medium">
+                                  <div className={`flex items-center gap-1.5 font-medium ${
+                                    isDark ? 'text-indigo-400' : 'text-indigo-400'
+                                  }`}>
                                     <RefreshCw className="w-3 h-3" /> Modificado em: {new Date(app.updatedAt).toLocaleString('pt-BR')}
                                   </div>
                                 </div>
                                 {app.appointmentDate === todayStr && !app.isConfirmed && (
-                                  <div className="mt-2 flex items-center gap-1.5 text-[10px] font-bold text-red-600 bg-red-50 px-2 py-1 rounded-lg border border-red-100 animate-pulse w-fit">
+                                  <div className={`mt-2 flex items-center gap-1.5 text-[10px] font-bold px-2 py-1 rounded-lg border animate-pulse w-fit ${
+                                    isDark 
+                                      ? 'text-red-400 bg-red-500/10 border-red-500/30' 
+                                      : 'text-red-600 bg-red-50 border-red-100'
+                                  }`}>
                                     <XCircle className="w-3 h-3" /> NÃO AGENDADO - SOLICITAR NOVA DATA
                                   </div>
                                 )}
                                 {app.observations && (
-                                  <div className="mt-2 text-[10px] text-orange-600 italic line-clamp-1 bg-orange-50 px-2 py-1 rounded-lg border border-orange-100">
+                                  <div className={`mt-2 text-[10px] italic line-clamp-1 px-2 py-1 rounded-lg border ${
+                                    isDark 
+                                      ? 'text-orange-400 bg-orange-500/10 border-orange-500/30' 
+                                      : 'text-orange-600 bg-orange-50 border-orange-100'
+                                  }`}>
                                     "{app.observations}"
                                   </div>
                                 )}
                               </div>
                             </div>
-                            <div className="flex flex-col items-end gap-3">
+                            <div className="flex flex-col items-end gap-2">
                               <div className="flex items-center gap-2">
                                 <button 
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     sendWhatsAppMessage(app);
                                   }}
-                                  className="p-1.5 rounded-lg bg-emerald-50 text-emerald-600 border border-emerald-100 hover:bg-emerald-100 transition-all"
+                                  className={`p-2 sm:p-2.5 rounded-xl border transition-all flex items-center gap-1.5 group/btn ${
+                                    isDark
+                                      ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/30'
+                                      : 'bg-emerald-50 text-emerald-600 border-emerald-100 hover:bg-emerald-100'
+                                  }`}
                                   title="Enviar via WhatsApp"
                                 >
-                                  <MessageCircle className="w-3.5 h-3.5" />
+                                  <MessageCircle className="w-4 h-4 sm:w-5 sm:h-5" />
+                                  <span className="hidden sm:inline text-[10px] font-bold">WhatsApp</span>
                                 </button>
                                 <button 
                                   onClick={(e) => deleteAppointment(e, app)}
                                   disabled={isDeleting === app.id}
-                                  className={`p-1.5 rounded-lg border transition-all ${
+                                  className={`p-2 sm:p-2.5 rounded-xl border transition-all flex items-center gap-1.5 group/btn ${
                                     isDeleting === app.id 
-                                      ? 'bg-slate-50 text-slate-400 border-slate-100 cursor-not-allowed' 
-                                      : 'bg-red-50 text-red-600 border-red-100 hover:bg-red-100'
+                                      ? isDark 
+                                        ? 'bg-slate-700/50 text-slate-500 border-slate-700 cursor-not-allowed' 
+                                        : 'bg-slate-50 text-slate-400 border-slate-100 cursor-not-allowed'
+                                      : isDark
+                                        ? 'bg-red-500/10 text-red-400 border-red-500/30 hover:bg-red-500/30'
+                                        : 'bg-red-50 text-red-600 border-red-100 hover:bg-red-100'
                                   }`}
                                   title="Excluir Agendamento"
                                 >
                                   {isDeleting === app.id ? (
-                                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                                    <RefreshCw className="w-4 h-4 sm:w-5 sm:h-5 animate-spin" />
                                   ) : (
-                                    <Trash2 className="w-3.5 h-3.5" />
+                                    <Trash2 className="w-4 h-4 sm:w-5 sm:h-5" />
                                   )}
+                                  <span className="hidden sm:inline text-[10px] font-bold">Excluir</span>
                                 </button>
                                 <div className="flex gap-1">
                                   {app.isConfirmed && (
-                                    <span className="bg-blue-100 text-blue-700 text-[8px] font-black px-1.5 py-0.5 rounded uppercase tracking-tighter">Confirmado</span>
+                                    <span className={`text-[8px] font-black px-1.5 py-0.5 rounded uppercase tracking-tighter ${
+                                      isDark
+                                        ? 'bg-blue-500/20 text-blue-400'
+                                        : 'bg-blue-100 text-blue-700'
+                                    }`}>Confirmado</span>
                                   )}
                                   {app.result && (
-                                    <span className={`${
-                                      app.result === 'APTO' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'
-                                    } text-[8px] font-black px-1.5 py-0.5 rounded uppercase tracking-tighter`}>
+                                    <span className={`text-[8px] font-black px-1.5 py-0.5 rounded uppercase tracking-tighter ${
+                                      app.result === 'APTO'
+                                        ? isDark ? 'bg-emerald-500/20 text-emerald-400' : 'bg-emerald-100 text-emerald-700'
+                                        : isDark ? 'bg-red-500/20 text-red-400' : 'bg-red-100 text-red-700'
+                                    }`}>
                                       {app.result}
                                     </span>
                                   )}
                                 </div>
                                 <span className={`text-[9px] font-black uppercase px-2 py-1 rounded-lg tracking-tighter ${
-                                  app.examType === 'Legislação' ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'
+                                  app.examType === 'Legislação'
+                                    ? isDark ? 'bg-amber-500/20 text-amber-400' : 'bg-amber-100 text-amber-700'
+                                    : isDark ? 'bg-emerald-500/20 text-emerald-400' : 'bg-emerald-100 text-emerald-700'
                                 }`}>
                                   {app.examType}
                                 </span>
                               </div>
                               <button 
                                 onClick={(e) => toggleRequestSent(e, app.id)}
-                                className={`p-1.5 rounded-lg transition-all border ${
+                                className={`p-2 sm:p-2.5 rounded-xl transition-all border flex items-center gap-1.5 group/btn ${
                                   app.isRequestSent 
-                                    ? 'bg-amber-500 border-amber-500 text-white shadow-sm' 
-                                    : 'bg-white border-slate-200 text-slate-400 hover:border-amber-500 hover:text-amber-500'
+                                    ? isDark
+                                      ? 'bg-amber-500 border-amber-500 text-white shadow-sm shadow-amber-500/20'
+                                      : 'bg-amber-500 border-amber-500 text-white shadow-sm'
+                                    : isDark
+                                      ? 'bg-slate-800 border-slate-700 text-slate-400 hover:border-amber-500 hover:text-amber-400'
+                                      : 'bg-white border-slate-200 text-slate-400 hover:border-amber-500 hover:text-amber-500'
                                 }`}
                                 title={app.isRequestSent ? "Pedido já enviado" : "Marcar como Pedido Enviado"}
                               >
-                                <Send className="w-3.5 h-3.5" />
+                                <Send className="w-4 h-4 sm:w-5 sm:h-5" />
+                                <span className="hidden sm:inline text-[10px] font-bold">Enviado</span>
                               </button>
                               <button 
                                 onClick={(e) => toggleConfirmation(e, app.id)}
-                                className={`p-1.5 rounded-lg transition-all border ${
+                                className={`p-2 sm:p-2.5 rounded-xl transition-all border flex items-center gap-1.5 group/btn ${
                                   app.isConfirmed 
-                                    ? 'bg-blue-600 border-blue-600 text-white' 
-                                    : 'bg-white border-slate-200 text-slate-400 hover:border-blue-500 hover:text-blue-500'
+                                    ? isDark
+                                      ? 'bg-blue-600 border-blue-600 text-white'
+                                      : 'bg-blue-600 border-blue-600 text-white'
+                                    : isDark
+                                      ? 'bg-slate-800 border-slate-700 text-slate-400 hover:border-blue-500 hover:text-blue-400'
+                                      : 'bg-white border-slate-200 text-slate-400 hover:border-blue-500 hover:text-blue-500'
                                 }`}
                                 title={app.isConfirmed ? "Desmarcar Confirmação" : "Confirmar Agendamento"}
                               >
-                                <Check className="w-3.5 h-3.5" />
+                                <Check className="w-4 h-4 sm:w-5 sm:h-5" />
+                                <span className="hidden sm:inline text-[10px] font-bold">Confirmar</span>
                               </button>
                               
                               {(app.isConfirmed || activeFilter === 'all') && (
                                 <div className="flex gap-1">
                                   <button
                                     onClick={(e) => toggleResult(e, app.id, 'APTO')}
-                                    className={`text-[9px] font-black px-2 py-1 rounded-md transition-all border ${
+                                    className={`text-[10px] sm:text-xs font-black px-3 sm:px-4 py-2 rounded-xl transition-all border flex items-center gap-1.5 ${
                                       app.result === 'APTO'
-                                        ? 'bg-emerald-600 border-emerald-600 text-white shadow-sm'
-                                        : 'bg-white border-slate-200 text-slate-400 hover:border-emerald-500 hover:text-emerald-500'
+                                        ? isDark
+                                          ? 'bg-emerald-600 border-emerald-600 text-white shadow-sm shadow-emerald-500/20'
+                                          : 'bg-emerald-600 border-emerald-600 text-white shadow-sm'
+                                        : isDark
+                                          ? 'bg-slate-800 border-slate-700 text-slate-400 hover:border-emerald-500 hover:text-emerald-400'
+                                          : 'bg-white border-slate-200 text-slate-400 hover:border-emerald-500 hover:text-emerald-500'
                                     }`}
                                   >
+                                    <Check className="w-3 h-3 sm:w-4 sm:h-4" />
                                     APTO
                                   </button>
                                   <button
                                     onClick={(e) => toggleResult(e, app.id, 'INAPTO')}
-                                    className={`text-[9px] font-black px-2 py-1 rounded-md transition-all border ${
+                                    className={`text-[10px] sm:text-xs font-black px-3 sm:px-4 py-2 rounded-xl transition-all border flex items-center gap-1.5 ${
                                       app.result === 'INAPTO'
-                                        ? 'bg-red-600 border-red-600 text-white shadow-sm'
-                                        : 'bg-white border-slate-200 text-slate-400 hover:border-red-500 hover:text-red-500'
+                                        ? isDark
+                                          ? 'bg-red-600 border-red-600 text-white shadow-sm shadow-red-500/20'
+                                          : 'bg-red-600 border-red-600 text-white shadow-sm'
+                                        : isDark
+                                          ? 'bg-slate-800 border-slate-700 text-slate-400 hover:border-red-500 hover:text-red-400'
+                                          : 'bg-white border-slate-200 text-slate-400 hover:border-red-500 hover:text-red-500'
                                     }`}
                                   >
+                                    <X className="w-3 h-3 sm:w-4 sm:h-4" />
                                     INAPTO
                                   </button>
                                 </div>
@@ -1630,12 +1972,18 @@ export default function App() {
                     </AnimatePresence>
 
                     {filteredAppointments.length === 0 && (
-                      <div className="bg-white border border-dashed border-slate-300 rounded-3xl p-12 text-center shadow-sm">
-                        <div className="bg-slate-50 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-                          <Search className="text-slate-300 w-8 h-8" />
+                      <div className={`rounded-3xl p-12 text-center border border-dashed ${
+                        isDark 
+                          ? 'bg-slate-800/30 border-slate-700' 
+                          : 'bg-white border-slate-300 shadow-sm'
+                      }`}>
+                        <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 ${
+                          isDark ? 'bg-slate-700' : 'bg-slate-50'
+                        }`}>
+                          <Search className={isDark ? 'text-slate-500 w-8 h-8' : 'text-slate-300 w-8 h-8'} />
                         </div>
-                        <h3 className="text-slate-900 font-bold">Nenhum agendamento encontrado</h3>
-                        <p className="text-slate-500 text-sm mt-1">Tente ajustar sua busca ou adicione um novo registro.</p>
+                        <h3 className={`font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>Nenhum agendamento encontrado</h3>
+                        <p className={`text-sm mt-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Tente ajustar sua busca ou adicione um novo registro.</p>
                       </div>
                     )}
                   </>
@@ -1660,7 +2008,11 @@ export default function App() {
                           <div className="flex justify-between items-start mb-6">
                             <button 
                               onClick={() => setSelectedAppointment(null)}
-                              className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-slate-50 rounded-xl border border-slate-100 transition-all shadow-sm"
+                              className={`p-2 rounded-xl border transition-all shadow-sm ${
+                                isDark 
+                                  ? 'text-slate-400 hover:text-white hover:bg-slate-700 border-slate-700' 
+                                  : 'text-slate-400 hover:text-indigo-600 hover:bg-slate-50 border-slate-100'
+                              }`}
                               title="Voltar"
                             >
                               <X className="w-4 h-4 lg:hidden" />
@@ -1671,8 +2023,12 @@ export default function App() {
                                 onClick={(e) => toggleRequestSent(e, selectedAppointment.id)}
                                 className={`p-2 rounded-xl transition-all border flex items-center gap-2 font-bold text-[10px] uppercase tracking-widest active:scale-95 ${
                                   selectedAppointment.isRequestSent 
-                                    ? 'bg-amber-500 border-amber-500 text-white shadow-lg shadow-amber-100' 
-                                    : 'bg-white border-slate-200 text-slate-400 hover:border-amber-500 hover:text-amber-500'
+                                    ? isDark
+                                      ? 'bg-amber-500 border-amber-500 text-white shadow-lg shadow-amber-500/20'
+                                      : 'bg-amber-500 border-amber-500 text-white shadow-lg shadow-amber-100'
+                                    : isDark
+                                      ? 'bg-slate-800 border-slate-700 text-slate-300 hover:border-amber-500 hover:text-amber-400'
+                                      : 'bg-white border-slate-200 text-slate-400 hover:border-amber-500 hover:text-amber-500'
                                 }`}
                                 title={selectedAppointment.isRequestSent ? "Pedido já enviado" : "Marcar como Pedido Enviado"}
                               >
@@ -1683,8 +2039,12 @@ export default function App() {
                                 onClick={(e) => toggleConfirmation(e, selectedAppointment.id)}
                                 className={`p-2 rounded-xl transition-all border flex items-center gap-2 font-bold text-[10px] uppercase tracking-widest active:scale-95 ${
                                   selectedAppointment.isConfirmed 
-                                    ? 'bg-blue-600 border-blue-600 text-white shadow-lg shadow-blue-100' 
-                                    : 'bg-white border-slate-200 text-slate-400 hover:border-blue-500 hover:text-blue-500'
+                                    ? isDark
+                                      ? 'bg-blue-600 border-blue-600 text-white shadow-lg shadow-blue-500/20'
+                                      : 'bg-blue-600 border-blue-600 text-white shadow-lg shadow-blue-100'
+                                    : isDark
+                                      ? 'bg-slate-800 border-slate-700 text-slate-300 hover:border-blue-500 hover:text-blue-400'
+                                      : 'bg-white border-slate-200 text-slate-400 hover:border-blue-500 hover:text-blue-500'
                                 }`}
                                 title={selectedAppointment.isConfirmed ? "Desmarcar Confirmação" : "Confirmar Agendamento"}
                               >
@@ -1693,14 +2053,22 @@ export default function App() {
                               </button>
                               <button 
                                 onClick={() => handleEdit(selectedAppointment)}
-                                className="p-2 bg-indigo-50 text-indigo-600 rounded-xl hover:bg-indigo-100 transition-colors border border-indigo-100 active:scale-95"
+                                className={`p-2 rounded-xl transition-colors border active:scale-95 ${
+                                  isDark
+                                    ? 'bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20 border-indigo-500/30'
+                                    : 'bg-indigo-50 text-indigo-600 hover:bg-indigo-100 border-indigo-100'
+                                }`}
                                 title="Editar"
                               >
                                 <FileText className="w-4 h-4" />
                               </button>
                               <button 
                                 onClick={() => openTicketForStudent(selectedAppointment)}
-                                className="p-2 bg-red-50 text-red-600 rounded-xl hover:bg-red-100 transition-colors border border-red-100 active:scale-95"
+                                className={`p-2 rounded-xl transition-colors border active:scale-95 ${
+                                  isDark
+                                    ? 'bg-red-500/10 text-red-400 hover:bg-red-500/20 border-red-500/30'
+                                    : 'bg-red-50 text-red-600 hover:bg-red-100 border-red-100'
+                                }`}
                                 title="Abrir Chamado SGA/CRT"
                               >
                                 <TicketIcon className="w-4 h-4" />
@@ -1710,8 +2078,12 @@ export default function App() {
                                 disabled={isDeleting === selectedAppointment.id}
                                 className={`p-2 rounded-xl transition-colors border active:scale-95 ${
                                   isDeleting === selectedAppointment.id
-                                    ? 'bg-slate-50 text-slate-400 border-slate-100 cursor-not-allowed'
-                                    : 'bg-red-50 text-red-600 border-red-100 hover:bg-red-100'
+                                    ? isDark
+                                      ? 'bg-slate-700 text-slate-500 border-slate-700 cursor-not-allowed'
+                                      : 'bg-slate-50 text-slate-400 border-slate-100 cursor-not-allowed'
+                                    : isDark
+                                      ? 'bg-red-500/10 text-red-400 hover:bg-red-500/20 border-red-500/30'
+                                      : 'bg-red-50 text-red-600 hover:bg-red-100 border-red-100'
                                 }`}
                                 title="Excluir"
                               >
@@ -1725,13 +2097,19 @@ export default function App() {
                           </div>
                           
                           <div className="space-y-1">
-                            <h2 className="text-2xl font-bold text-slate-900 leading-tight">{selectedAppointment.fullName}</h2>
-                            <div className="flex items-center gap-2 text-indigo-600 font-bold text-sm">
-                              <span className="bg-indigo-100 px-2 py-0.5 rounded-md text-[10px] uppercase tracking-widest">RENACH</span>
+                            <h2 className={`text-2xl font-bold leading-tight ${isDark ? 'text-white' : 'text-slate-900'}`}>{selectedAppointment.fullName}</h2>
+                            <div className={`flex items-center gap-2 text-sm font-bold ${
+                              isDark ? 'text-indigo-400' : 'text-indigo-600'
+                            }`}>
+                              <span className={`px-2 py-0.5 rounded-md text-[10px] uppercase tracking-widest font-black ${
+                                isDark ? 'bg-indigo-500/20 text-indigo-300' : 'bg-indigo-100 text-indigo-700'
+                              }`}>RENACH</span>
                               {selectedAppointment.renach}
                               {selectedAppointment.result && (
                                 <span className={`ml-2 px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-widest ${
-                                  selectedAppointment.result === 'APTO' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'
+                                  selectedAppointment.result === 'APTO' 
+                                    ? isDark ? 'bg-emerald-500/20 text-emerald-400' : 'bg-emerald-100 text-emerald-700'
+                                    : isDark ? 'bg-red-500/20 text-red-400' : 'bg-red-100 text-red-700'
                                 }`}>
                                   {selectedAppointment.result}
                                 </span>
@@ -1742,60 +2120,75 @@ export default function App() {
                         
                         <div className="p-6 space-y-8 overflow-y-auto custom-scrollbar flex-1">
                           <div className="grid grid-cols-2 gap-6">
-                            <DetailItem icon={<User className="w-4 h-4" />} label="CPF" value={selectedAppointment.cpf} />
-                            <DetailItem icon={<Calendar className="w-4 h-4" />} label="Data" value={new Date(selectedAppointment.appointmentDate + 'T12:00:00').toLocaleDateString('pt-BR')} />
-                            <DetailItem icon={<MapPin className="w-4 h-4" />} label="Local" value={selectedAppointment.location} />
-                            <DetailItem icon={<Phone className="w-4 h-4" />} label="Contato" value={selectedAppointment.contact} />
+                            <DetailItem icon={<User className="w-4 h-4" />} label="CPF" value={selectedAppointment.cpf} isDark={isDark} />
+                            <DetailItem icon={<Calendar className="w-4 h-4" />} label="Data" value={new Date(selectedAppointment.appointmentDate + 'T12:00:00').toLocaleDateString('pt-BR')} isDark={isDark} />
+                            <DetailItem icon={<MapPin className="w-4 h-4" />} label="Local" value={selectedAppointment.location} isDark={isDark} />
+                            <DetailItem icon={<Phone className="w-4 h-4" />} label="Contato" value={selectedAppointment.contact} isDark={isDark} />
                             {selectedAppointment.result && (
                               <DetailItem 
                                 icon={<CheckCircle2 className="w-4 h-4" />} 
                                 label="Resultado" 
                                 value={selectedAppointment.result} 
-                                className={selectedAppointment.result === 'APTO' ? 'text-emerald-600' : 'text-red-600'}
+                                className={selectedAppointment.result === 'APTO' ? (isDark ? 'text-emerald-400' : 'text-emerald-600') : (isDark ? 'text-red-400' : 'text-red-600')}
+                                isDark={isDark}
                               />
                             )}
                             <DetailItem 
                               icon={<Clock className="w-4 h-4" />} 
                               label="Lançado no Sistema" 
                               value={new Date(selectedAppointment.createdAt).toLocaleString('pt-BR')} 
+                              isDark={isDark}
                             />
                             <DetailItem 
                               icon={<RefreshCw className="w-4 h-4" />} 
                               label="Última Modificação" 
                               value={new Date(selectedAppointment.updatedAt).toLocaleString('pt-BR')} 
-                              className="text-indigo-600"
+                              className={isDark ? 'text-indigo-400' : 'text-indigo-600'}
+                              isDark={isDark}
                             />
                           </div>
 
                           {selectedAppointment.observations && (
-                            <div className="bg-orange-50 rounded-2xl p-4 border border-orange-100">
-                              <div className="flex items-center gap-2 text-[10px] font-black text-orange-400 uppercase tracking-widest mb-2">
+                            <div className={`rounded-2xl p-4 border ${
+                              isDark 
+                                ? 'bg-orange-500/10 border-orange-500/30' 
+                                : 'bg-orange-50 border-orange-100'
+                            }`}>
+                              <div className={`flex items-center gap-2 text-[10px] font-black uppercase tracking-widest mb-2 ${
+                                isDark ? 'text-orange-400' : 'text-orange-400'
+                              }`}>
                                 <MessageSquare className="w-3 h-3" />
                                 Observações
                               </div>
-                              <p className="text-sm text-orange-700 leading-relaxed italic">
+                              <p className={`text-sm leading-relaxed italic ${
+                                isDark ? 'text-orange-300' : 'text-orange-700'
+                              }`}>
                                 "{selectedAppointment.observations}"
                               </p>
                             </div>
                           )}
 
                           <div>
-                            <h3 className="text-[10px] font-black text-slate-400 uppercase mb-4 tracking-widest">Status de Aptidão</h3>
+                            <h3 className={`text-[10px] font-black uppercase mb-4 tracking-widest ${
+                              isDark ? 'text-slate-400' : 'text-slate-400'
+                            }`}>Status de Aptidão</h3>
                             <div className="grid grid-cols-2 gap-3">
-                              <StatusBadge label="Vista" isFit={selectedAppointment.isFitVision} />
-                              <StatusBadge label="Psicólogo" isFit={selectedAppointment.isFitPsychologist} />
-                              <StatusBadge label="Tela H572C" isFit={selectedAppointment.isFitH572C} />
-                              <StatusBadge label="Tela CP02A" isFit={selectedAppointment.isFitCP02A} />
+                              <StatusBadge label="Vista" isFit={selectedAppointment.isFitVision} isDark={isDark} />
+                              <StatusBadge label="Psicólogo" isFit={selectedAppointment.isFitPsychologist} isDark={isDark} />
+                              <StatusBadge label="Tela H572C" isFit={selectedAppointment.isFitH572C} isDark={isDark} />
+                              <StatusBadge label="Tela CP02A" isFit={selectedAppointment.isFitCP02A} isDark={isDark} />
                               {selectedAppointment.examType === 'Prova de Rua' && (
-                                <StatusBadge label="Legislação" isFit={selectedAppointment.isFitLegislation} />
+                                <StatusBadge label="Legislação" isFit={selectedAppointment.isFitLegislation} isDark={isDark} />
                               )}
                             </div>
                           </div>
 
                           {selectedAppointment.isConfirmed && (
-                            <div className="pt-6 border-t border-slate-100">
+                            <div className={`pt-6 border-t ${isDark ? 'border-slate-700' : 'border-slate-100'}`}>
                               <div className="flex items-center justify-between mb-4">
-                                <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Texto para o Aluno</h3>
+                                <h3 className={`text-[10px] font-black uppercase tracking-widest ${
+                                  isDark ? 'text-slate-400' : 'text-slate-400'
+                                }`}>Texto para o Aluno</h3>
                                 <div className="flex gap-2">
                                   <button 
                                     onClick={() => sendWhatsAppMessage(selectedAppointment)}
@@ -1805,21 +2198,31 @@ export default function App() {
                                   </button>
                                   <button 
                                     onClick={() => copyToClipboard(generateStudentText(selectedAppointment), 'Texto para aluno copiado!')}
-                                    className="text-emerald-600 hover:text-emerald-700 text-[10px] font-bold flex items-center gap-1.5 bg-emerald-50 px-3 py-1.5 rounded-xl transition-colors"
+                                    className={`text-[10px] font-bold flex items-center gap-1.5 px-3 py-1.5 rounded-xl transition-colors ${
+                                      isDark
+                                        ? 'text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30'
+                                        : 'text-emerald-600 bg-emerald-50 hover:bg-emerald-100'
+                                    }`}
                                   >
                                     <Copy className="w-3 h-3" /> Copiar Texto
                                   </button>
                                 </div>
                               </div>
-                              <div className="bg-emerald-50 rounded-2xl p-5 font-sans text-[12px] text-emerald-900 whitespace-pre-wrap leading-relaxed border border-emerald-100 shadow-inner">
+                              <div className={`rounded-2xl p-5 font-sans text-[12px] whitespace-pre-wrap leading-relaxed border shadow-inner ${
+                                isDark
+                                  ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30'
+                                  : 'bg-emerald-50 text-emerald-900 border-emerald-100'
+                              }`}>
                                 {generateStudentText(selectedAppointment)}
                               </div>
                             </div>
                           )}
 
-                          <div className="pt-6 border-t border-slate-100">
+                          <div className={`pt-6 border-t ${isDark ? 'border-slate-700' : 'border-slate-100'}`}>
                             <div className="flex items-center justify-between mb-4">
-                              <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Texto de Solicitação</h3>
+                              <h3 className={`text-[10px] font-black uppercase tracking-widest ${
+                                isDark ? 'text-slate-400' : 'text-slate-400'
+                              }`}>Texto de Solicitação</h3>
                               <div className="flex gap-2">
                                 <button 
                                   onClick={() => sendEmail(selectedAppointment)}
@@ -1829,20 +2232,34 @@ export default function App() {
                                 </button>
                                 <button 
                                   onClick={() => copyToClipboard(getSubject(selectedAppointment), 'Assunto copiado!')}
-                                  className="text-indigo-600 hover:text-indigo-700 text-[10px] font-bold flex items-center gap-1.5 bg-indigo-50 px-3 py-1.5 rounded-xl transition-colors"
+                                  className={`text-[10px] font-bold flex items-center gap-1.5 px-3 py-1.5 rounded-xl transition-colors ${
+                                    isDark
+                                      ? 'text-indigo-400 bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/30'
+                                      : 'text-indigo-600 bg-indigo-50 hover:bg-indigo-100'
+                                  }`}
                                 >
                                   <Copy className="w-3 h-3" /> Assunto
                                 </button>
                                 <button 
                                   onClick={() => copyToClipboard(generateRequestText(selectedAppointment), 'Texto completo copiado!')}
-                                  className="text-indigo-600 hover:text-indigo-700 text-[10px] font-bold flex items-center gap-1.5 bg-indigo-50 px-3 py-1.5 rounded-xl transition-colors"
+                                  className={`text-[10px] font-bold flex items-center gap-1.5 px-3 py-1.5 rounded-xl transition-colors ${
+                                    isDark
+                                      ? 'text-indigo-400 bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/30'
+                                      : 'text-indigo-600 bg-indigo-50 hover:bg-indigo-100'
+                                  }`}
                                 >
                                   <Copy className="w-3 h-3" /> Copiar Tudo
                                 </button>
                               </div>
                             </div>
-                            <div className="bg-slate-900 rounded-2xl p-5 font-mono text-[11px] text-slate-300 whitespace-pre-wrap leading-relaxed border border-slate-800 shadow-inner">
-                              <div className="text-indigo-400 mb-2 font-bold pb-2 border-b border-slate-800">
+                            <div className={`rounded-2xl p-5 font-mono text-[11px] whitespace-pre-wrap leading-relaxed border shadow-inner ${
+                              isDark
+                                ? 'bg-slate-800 text-slate-300 border-slate-700'
+                                : 'bg-slate-900 text-slate-300 border-slate-800'
+                            }`}>
+                              <div className={`mb-2 font-bold pb-2 border-b ${
+                                isDark ? 'text-indigo-400 border-slate-700' : 'text-indigo-400 border-slate-800'
+                              }`}>
                                 ASSUNTO: {getSubject(selectedAppointment)}
                               </div>
                               {generateRequestText(selectedAppointment)}
@@ -1851,12 +2268,16 @@ export default function App() {
                         </div>
                       </motion.div>
                   ) : (
-                    <div className="bg-white rounded-3xl border border-dashed border-slate-300 p-12 text-center shadow-sm hidden lg:block">
-                      <div className="bg-indigo-50 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-6">
-                        <ChevronRight className="text-indigo-400 w-8 h-8" />
+                    <div className={`rounded-3xl border border-dashed p-12 text-center shadow-sm hidden lg:block ${
+                      isDark ? 'bg-slate-800/30 border-slate-700' : 'bg-white border-slate-300'
+                    }`}>
+                      <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-6 ${
+                        isDark ? 'bg-indigo-500/20' : 'bg-indigo-50'
+                      }`}>
+                        <ChevronRight className={isDark ? 'text-indigo-400 w-8 h-8' : 'text-indigo-400 w-8 h-8'} />
                       </div>
-                      <h3 className="text-slate-900 font-bold mb-2">Visualizar Detalhes</h3>
-                      <p className="text-slate-500 text-sm">Selecione um agendamento na lista para ver todas as informações e gerar o texto de solicitação.</p>
+                      <h3 className={`font-bold mb-2 ${isDark ? 'text-white' : 'text-slate-900'}`}>Visualizar Detalhes</h3>
+                      <p className={`text-sm ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Selecione um agendamento na lista para ver todas as informações e gerar o texto de solicitação.</p>
                     </div>
                   )}
                 </AnimatePresence>
@@ -1867,8 +2288,8 @@ export default function App() {
           <div className="col-span-1 lg:col-span-12 space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
-                <h2 className="text-2xl font-bold text-slate-900">Central de Chamados</h2>
-                <p className="text-sm text-slate-500">Controle de pendências SGA e CRT.</p>
+                <h2 className={`text-2xl font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>Central de Chamados</h2>
+                <p className={`text-sm ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Controle de pendências SGA e CRT.</p>
               </div>
               <motion.button 
                 whileHover={{ scale: 1.05, x: 5 }}
@@ -1877,7 +2298,7 @@ export default function App() {
                   resetTicketForm();
                   setIsTicketFormOpen(true);
                 }}
-                className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-2xl font-bold flex items-center justify-center gap-2 transition-all shadow-lg shadow-indigo-100"
+                className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white px-6 py-3 rounded-2xl font-bold flex items-center justify-center gap-2 transition-all shadow-lg shadow-indigo-500/30"
               >
                 <Plus className="w-5 h-5" />
                 Novo Chamado
@@ -1887,18 +2308,24 @@ export default function App() {
             {/* Mobile Search for Tickets */}
             <div className="lg:hidden">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
+                <Search className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 ${isDark ? 'text-slate-500' : 'text-slate-400'}`} />
                 <input 
                   type="text" 
                   placeholder="Buscar chamados..." 
-                  className="w-full pl-10 pr-10 py-3 bg-white border border-slate-200 rounded-2xl text-sm outline-none shadow-sm"
+                  className={`w-full pl-10 pr-10 py-3 rounded-2xl text-sm outline-none shadow-sm border ${
+                    isDark 
+                      ? 'bg-slate-800 border-slate-700 text-white placeholder-slate-500' 
+                      : 'bg-white border-slate-200 text-slate-900'
+                  }`}
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
                 {searchTerm && (
                   <button 
                     onClick={() => setSearchTerm('')}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-indigo-600 transition-colors p-1 hover:bg-slate-100 rounded-full"
+                    className={`absolute right-3 top-1/2 -translate-y-1/2 transition-colors p-1 rounded-full ${
+                      isDark ? 'text-slate-500 hover:text-indigo-400 hover:bg-slate-700' : 'text-slate-400 hover:text-indigo-600 hover:bg-slate-100'
+                    }`}
                     title="Limpar busca"
                   >
                     <X className="w-4 h-4" />
@@ -1909,21 +2336,29 @@ export default function App() {
 
             {/* Ticket Statistics */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-              <div className="bg-white p-3 sm:p-4 rounded-2xl sm:rounded-3xl border border-slate-100 shadow-sm">
-                <p className="text-[8px] sm:text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Total</p>
-                <p className="text-xl sm:text-2xl font-bold text-slate-900">{tickets.length}</p>
+              <div className={`p-3 sm:p-4 rounded-2xl sm:rounded-3xl border shadow-sm ${
+                isDark ? 'bg-slate-800/50 border-slate-700' : 'bg-white border-slate-100'
+              }`}>
+                <p className={`text-[8px] sm:text-[10px] font-black uppercase tracking-widest mb-1 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Total</p>
+                <p className={`text-xl sm:text-2xl font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>{tickets.length}</p>
               </div>
-              <div className="bg-white p-3 sm:p-4 rounded-2xl sm:rounded-3xl border border-slate-100 shadow-sm">
-                <p className="text-[8px] sm:text-[10px] font-black text-red-400 uppercase tracking-widest mb-1">Abertos</p>
-                <p className="text-xl sm:text-2xl font-bold text-red-600">{tickets.filter(t => t.status === 'Aberto').length}</p>
+              <div className={`p-3 sm:p-4 rounded-2xl sm:rounded-3xl border shadow-sm ${
+                isDark ? 'bg-red-500/10 border-red-500/30' : 'bg-white border-slate-100'
+              }`}>
+                <p className={`text-[8px] sm:text-[10px] font-black uppercase tracking-widest mb-1 ${isDark ? 'text-red-400' : 'text-red-400'}`}>Abertos</p>
+                <p className={`text-xl sm:text-2xl font-bold ${isDark ? 'text-red-400' : 'text-red-600'}`}>{tickets.filter(t => t.status === 'Aberto').length}</p>
               </div>
-              <div className="bg-white p-3 sm:p-4 rounded-2xl sm:rounded-3xl border border-slate-100 shadow-sm">
-                <p className="text-[8px] sm:text-[10px] font-black text-amber-400 uppercase tracking-widest mb-1">Andamento</p>
-                <p className="text-xl sm:text-2xl font-bold text-amber-600">{tickets.filter(t => t.status === 'Em Andamento').length}</p>
+              <div className={`p-3 sm:p-4 rounded-2xl sm:rounded-3xl border shadow-sm ${
+                isDark ? 'bg-amber-500/10 border-amber-500/30' : 'bg-white border-slate-100'
+              }`}>
+                <p className={`text-[8px] sm:text-[10px] font-black uppercase tracking-widest mb-1 ${isDark ? 'text-amber-400' : 'text-amber-400'}`}>Andamento</p>
+                <p className={`text-xl sm:text-2xl font-bold ${isDark ? 'text-amber-400' : 'text-amber-600'}`}>{tickets.filter(t => t.status === 'Em Andamento').length}</p>
               </div>
-              <div className="bg-white p-3 sm:p-4 rounded-2xl sm:rounded-3xl border border-slate-100 shadow-sm">
-                <p className="text-[8px] sm:text-[10px] font-black text-emerald-400 uppercase tracking-widest mb-1">Resolvidos</p>
-                <p className="text-xl sm:text-2xl font-bold text-emerald-600">{tickets.filter(t => t.status === 'Resolvido').length}</p>
+              <div className={`p-3 sm:p-4 rounded-2xl sm:rounded-3xl border shadow-sm ${
+                isDark ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-white border-slate-100'
+              }`}>
+                <p className={`text-[8px] sm:text-[10px] font-black uppercase tracking-widest mb-1 ${isDark ? 'text-emerald-400' : 'text-emerald-400'}`}>Resolvidos</p>
+                <p className={`text-xl sm:text-2xl font-bold ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}>{tickets.filter(t => t.status === 'Resolvido').length}</p>
               </div>
             </div>
 
@@ -1931,12 +2366,16 @@ export default function App() {
               {(['Aberto', 'Em Andamento', 'Resolvido'] as TicketStatus[]).map((status) => (
                 <div key={status} className="space-y-4">
                   <div className="flex items-center justify-between px-2">
-                    <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                    <h3 className={`text-xs font-black uppercase tracking-widest flex items-center gap-2 ${
+                      isDark ? 'text-slate-400' : 'text-slate-400'
+                    }`}>
                       <div className={`w-2 h-2 rounded-full ${
                         status === 'Aberto' ? 'bg-red-500' : status === 'Em Andamento' ? 'bg-amber-500' : 'bg-emerald-500'
                       }`} />
                       {status}
-                      <span className="ml-2 bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full text-[10px]">
+                      <span className={`ml-2 px-2 py-0.5 rounded-full text-[10px] ${
+                        isDark ? 'bg-slate-700 text-slate-400' : 'bg-slate-100 text-slate-500'
+                      }`}>
                         {filteredTickets.filter(t => t.status === status).length}
                       </span>
                     </h3>
@@ -1950,11 +2389,19 @@ export default function App() {
                           layout
                           initial={{ opacity: 0, y: 10 }}
                           animate={{ opacity: 1, y: 0 }}
-                          className="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm hover:shadow-md transition-all group"
+                          className={`p-5 rounded-3xl border shadow-sm hover:shadow-md transition-all group ${
+                            isDark 
+                              ? 'bg-slate-800/50 border-slate-700 hover:border-indigo-500/50' 
+                              : 'bg-white border-slate-200'
+                          }`}
                         >
                         <div className="flex justify-between items-start mb-3">
                           <span className={`text-[9px] font-black uppercase px-2 py-1 rounded-lg ${
-                            ticket.type === 'SGA' ? 'bg-red-100 text-red-700' : ticket.type === 'CRT' ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-700'
+                            ticket.type === 'SGA' 
+                              ? isDark ? 'bg-red-500/20 text-red-400' : 'bg-red-100 text-red-700'
+                              : ticket.type === 'CRT'
+                              ? isDark ? 'bg-blue-500/20 text-blue-400' : 'bg-blue-100 text-blue-700'
+                              : isDark ? 'bg-slate-700 text-slate-300' : 'bg-slate-100 text-slate-700'
                           }`}>
                             {ticket.type}
                           </span>
@@ -1974,32 +2421,56 @@ export default function App() {
                                 setEditingTicketId(ticket.id);
                                 setIsTicketFormOpen(true);
                               }}
-                              className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                              className={`p-1.5 rounded-lg transition-colors ${
+                                isDark 
+                                  ? 'text-slate-500 hover:text-indigo-400 hover:bg-indigo-500/20' 
+                                  : 'text-slate-400 hover:text-indigo-600 hover:bg-indigo-50'
+                              }`}
                             >
                               <FileText className="w-4 h-4" />
                             </button>
                             <button 
                               onClick={(e) => deleteTicket(e, ticket.id)}
-                              className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                              className={`p-1.5 rounded-lg transition-colors ${
+                                isDark 
+                                  ? 'text-slate-500 hover:text-red-400 hover:bg-red-500/20' 
+                                  : 'text-slate-400 hover:text-red-600 hover:bg-red-50'
+                              }`}
                             >
                               <Trash2 className="w-4 h-4" />
                             </button>
                           </div>
                         </div>
-                        <h4 className="font-bold text-slate-900 group-hover:text-indigo-600 transition-colors">{ticket.studentName}</h4>
+                        <h4 className={`font-bold group-hover:text-indigo-400 transition-colors ${
+                          isDark ? 'text-white' : 'text-slate-900'
+                        }`}>{ticket.studentName}</h4>
                         <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1">
-                          <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">CPF: {ticket.studentCpf}</p>
-                          <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">RENACH: {ticket.studentRenach}</p>
+                          <p className={`text-[10px] font-bold uppercase tracking-wider ${
+                            isDark ? 'text-slate-500' : 'text-slate-500'
+                          }`}>CPF: {ticket.studentCpf}</p>
+                          <p className={`text-[10px] font-bold uppercase tracking-wider ${
+                            isDark ? 'text-slate-500' : 'text-slate-500'
+                          }`}>RENACH: {ticket.studentRenach}</p>
                         </div>
                         
-                        <div className="mt-4 p-3 bg-slate-50 rounded-2xl border border-slate-100">
-                          <p className="text-xs text-slate-600 leading-relaxed italic">
+                        <div className={`mt-4 p-3 rounded-2xl ${
+                          isDark 
+                            ? 'bg-slate-900/50 border border-slate-700' 
+                            : 'bg-slate-50 border border-slate-100'
+                        }`}>
+                          <p className={`text-xs leading-relaxed italic ${
+                            isDark ? 'text-slate-300' : 'text-slate-600'
+                          }`}>
                             "{ticket.description}"
                           </p>
                           {ticket.observations && (
-                            <div className="mt-2 pt-2 border-t border-slate-200">
-                              <p className="text-[10px] text-slate-400 font-bold uppercase mb-1">Observações:</p>
-                              <p className="text-xs text-slate-500">{ticket.observations}</p>
+                            <div className={`mt-2 pt-2 ${
+                              isDark ? 'border-t border-slate-700' : 'border-t border-slate-200'
+                            }`}>
+                              <p className={`text-[10px] font-bold uppercase mb-1 ${
+                                isDark ? 'text-slate-500' : 'text-slate-400'
+                              }`}>Observações:</p>
+                              <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{ticket.observations}</p>
                             </div>
                           )}
                         </div>
@@ -2010,15 +2481,23 @@ export default function App() {
                               setCurrentView('appointments');
                               setSearchTerm(ticket.studentCpf);
                             }}
-                            className="mt-3 w-full py-2 bg-indigo-50 text-indigo-600 text-[10px] font-black uppercase rounded-xl hover:bg-indigo-100 transition-all flex items-center justify-center gap-2"
+                            className={`mt-3 w-full py-2 text-[10px] font-black uppercase rounded-xl transition-all flex items-center justify-center gap-2 ${
+                              isDark 
+                                ? 'bg-indigo-500/20 text-indigo-400 hover:bg-indigo-500/30 border border-indigo-500/30' 
+                                : 'bg-indigo-50 text-indigo-600 hover:bg-indigo-100'
+                            }`}
                           >
                             <Calendar className="w-3 h-3" />
                             Ver Agendamento
                           </button>
                         )}
 
-                        <div className="mt-4 flex items-center justify-between pt-4 border-t border-slate-50">
-                          <div className="flex items-center gap-1.5 text-[10px] text-slate-400 font-bold uppercase">
+                        <div className={`mt-4 flex items-center justify-between pt-4 ${
+                          isDark ? 'border-t border-slate-800' : 'border-t border-slate-50'
+                        }`}>
+                          <div className={`flex items-center gap-1.5 text-[10px] font-bold uppercase ${
+                            isDark ? 'text-slate-500' : 'text-slate-400'
+                          }`}>
                             <Clock className="w-3 h-3" />
                             {new Date(ticket.createdAt).toLocaleDateString('pt-BR')}
                           </div>
@@ -2036,7 +2515,11 @@ export default function App() {
                                 console.error('Erro ao atualizar status do chamado:', err);
                               }
                             }}
-                            className="text-[10px] font-black uppercase bg-slate-100 border-none rounded-lg px-2 py-1.5 outline-none cursor-pointer hover:bg-slate-200 transition-colors"
+                            className={`text-[10px] font-black uppercase rounded-lg px-2 py-1.5 outline-none cursor-pointer transition-colors ${
+                              isDark 
+                                ? 'bg-slate-700 border-none text-slate-400 hover:bg-slate-600' 
+                                : 'bg-slate-100 border-none text-slate-500 hover:bg-slate-200'
+                            }`}
                           >
                             <option value="Aberto">Aberto</option>
                             <option value="Em Andamento">Em Andamento</option>
@@ -2046,11 +2529,17 @@ export default function App() {
                       </motion.div>
                     ))
                   ) : (
-                    <div className="border-2 border-dashed border-slate-100 rounded-[2.5rem] py-12 text-center">
-                      <div className="bg-slate-50 w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-3">
-                        <AlertCircle className="w-6 h-6 text-slate-200" />
+                    <div className={`border-2 border-dashed rounded-[2.5rem] py-12 text-center ${
+                      isDark ? 'border-slate-700' : 'border-slate-100'
+                    }`}>
+                      <div className={`w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-3 ${
+                        isDark ? 'bg-slate-800' : 'bg-slate-50'
+                      }`}>
+                        <AlertCircle className={`w-6 h-6 ${isDark ? 'text-slate-600' : 'text-slate-200'}`} />
                       </div>
-                      <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest">Sem chamados</p>
+                      <p className={`text-[10px] font-black uppercase tracking-widest ${
+                        isDark ? 'text-slate-600' : 'text-slate-300'
+                      }`}>Sem chamados</p>
                     </div>
                   )}
                   </div>
@@ -2070,30 +2559,40 @@ export default function App() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setIsFormOpen(false)}
-              className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" 
+              className="absolute inset-0 bg-slate-900/70 backdrop-blur-sm" 
             />
             <motion.div 
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="relative bg-white w-full max-w-2xl rounded-[2.5rem] shadow-2xl overflow-hidden"
+              className={`relative w-full max-w-2xl rounded-[2.5rem] shadow-2xl overflow-hidden ${
+                isDark ? 'bg-slate-800' : 'bg-white'
+              }`}
             >
-              <div className="p-8 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+              <div className={`p-8 flex justify-between items-center ${
+                isDark ? 'border-b border-slate-700' : 'border-b border-slate-100'
+              } ${isDark ? 'bg-slate-900/50' : 'bg-slate-50/50'}`}>
                 <div>
-                  <h2 className="text-2xl font-bold text-slate-900">
+                  <h2 className={`text-2xl font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>
                     {editingId ? 'Editar Agendamento' : 'Novo Agendamento'}
                   </h2>
-                  <p className="text-xs text-slate-500 font-medium mt-1">Preencha os dados do candidato e as informações da prova.</p>
+                  <p className={`text-xs font-medium mt-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Preencha os dados do candidato e as informações da prova.</p>
                 </div>
                 <button 
                   onClick={() => setIsFormOpen(false)} 
-                  className="p-2 text-slate-400 hover:text-slate-600 hover:bg-white rounded-xl transition-all"
+                  className={`p-2 rounded-xl transition-all ${
+                    isDark 
+                      ? 'text-slate-400 hover:text-white hover:bg-slate-700' 
+                      : 'text-slate-400 hover:text-slate-600 hover:bg-white'
+                  }`}
                 >
                   <X className="w-6 h-6" />
                 </button>
               </div>
 
-              <form onSubmit={handleSubmit} className="p-8 space-y-8 max-h-[75vh] overflow-y-auto custom-scrollbar">
+              <form onSubmit={handleSubmit} className={`p-8 space-y-8 max-h-[75vh] overflow-y-auto custom-scrollbar ${
+                isDark ? 'text-white' : 'text-slate-900'
+              }`}>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="md:col-span-2">
                     <FormLabel label="Nome Completo" />
@@ -2244,11 +2743,13 @@ export default function App() {
                   </div>
 
                   <div className="md:col-span-2 pt-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <Checkbox label="Agendamento Confirmado" name="isConfirmed" checked={formData.isConfirmed} onChange={handleInputChange} />
-                    <Checkbox label="Chamados SGA/CRT" name="hasSgaCrtCall" checked={formData.hasSgaCrtCall} onChange={handleInputChange} />
+                    <Checkbox label="Agendamento Confirmado" name="isConfirmed" checked={formData.isConfirmed} onChange={handleInputChange} isDark={isDark} />
+                    <Checkbox label="Chamados SGA/CRT" name="hasSgaCrtCall" checked={formData.hasSgaCrtCall} onChange={handleInputChange} isDark={isDark} />
                   </div>
 
-                  <div className="md:col-span-2 pt-4 border-t border-slate-100">
+                  <div className={`md:col-span-2 pt-4 border-t ${
+                    isDark ? 'border-slate-700' : 'border-slate-100'
+                  }`}>
                     <FormLabel label="Resultado do Exame" />
                     <div className="flex gap-4">
                       <button
@@ -2256,7 +2757,11 @@ export default function App() {
                         onClick={() => setFormData(prev => ({ ...prev, result: prev.result === 'APTO' ? null : 'APTO' }))}
                         className={`flex-1 py-3 rounded-2xl border font-bold transition-all ${
                           formData.result === 'APTO' 
-                            ? 'bg-emerald-600 border-emerald-600 text-white shadow-lg shadow-emerald-200' 
+                            ? isDark 
+                              ? 'bg-emerald-600 border-emerald-600 text-white shadow-lg shadow-emerald-500/30' 
+                              : 'bg-emerald-600 border-emerald-600 text-white shadow-lg shadow-emerald-200'
+                            : isDark
+                            ? 'bg-slate-700 border-slate-600 text-slate-400 hover:border-emerald-500 hover:text-emerald-400'
                             : 'bg-white border-slate-200 text-slate-400 hover:border-emerald-500 hover:text-emerald-500'
                         }`}
                       >
@@ -2267,7 +2772,11 @@ export default function App() {
                         onClick={() => setFormData(prev => ({ ...prev, result: prev.result === 'INAPTO' ? null : 'INAPTO' }))}
                         className={`flex-1 py-3 rounded-2xl border font-bold transition-all ${
                           formData.result === 'INAPTO' 
-                            ? 'bg-red-600 border-red-600 text-white shadow-lg shadow-red-200' 
+                            ? isDark 
+                              ? 'bg-red-600 border-red-600 text-white shadow-lg shadow-red-500/30' 
+                              : 'bg-red-600 border-red-600 text-white shadow-lg shadow-red-200'
+                            : isDark
+                            ? 'bg-slate-700 border-slate-600 text-slate-400 hover:border-red-500 hover:text-red-400'
                             : 'bg-white border-slate-200 text-slate-400 hover:border-red-500 hover:text-red-500'
                         }`}
                       >
@@ -2277,15 +2786,15 @@ export default function App() {
                   </div>
                 </div>
 
-                <div className="pt-6 border-t border-slate-100">
-                  <h3 className="text-[10px] font-black text-slate-400 uppercase mb-5 tracking-widest">Verificação de Aptidão</h3>
+                <div className={`pt-6 border-t ${isDark ? 'border-slate-700' : 'border-slate-100'}`}>
+                  <h3 className={`text-[10px] font-black uppercase mb-5 tracking-widest ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Verificação de Aptidão</h3>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <Checkbox label="Apto no Exame de Vista" name="isFitVision" checked={formData.isFitVision} onChange={handleInputChange} />
-                    <Checkbox label="Apto no Psicólogo" name="isFitPsychologist" checked={formData.isFitPsychologist} onChange={handleInputChange} />
-                    <Checkbox label="Apto na Tela H572C" name="isFitH572C" checked={formData.isFitH572C} onChange={handleInputChange} />
-                    <Checkbox label="Apto na Tela CP02A" name="isFitCP02A" checked={formData.isFitCP02A} onChange={handleInputChange} />
+                    <Checkbox label="Apto no Exame de Vista" name="isFitVision" checked={formData.isFitVision} onChange={handleInputChange} isDark={isDark} />
+                    <Checkbox label="Apto no Psicólogo" name="isFitPsychologist" checked={formData.isFitPsychologist} onChange={handleInputChange} isDark={isDark} />
+                    <Checkbox label="Apto na Tela H572C" name="isFitH572C" checked={formData.isFitH572C} onChange={handleInputChange} isDark={isDark} />
+                    <Checkbox label="Apto na Tela CP02A" name="isFitCP02A" checked={formData.isFitCP02A} onChange={handleInputChange} isDark={isDark} />
                     {formData.examType === 'Prova de Rua' && (
-                      <Checkbox label="Apto na Prova de Legislação" name="isFitLegislation" checked={formData.isFitLegislation} onChange={handleInputChange} />
+                      <Checkbox label="Apto na Prova de Legislação" name="isFitLegislation" checked={formData.isFitLegislation} onChange={handleInputChange} isDark={isDark} />
                     )}
                   </div>
                 </div>
@@ -2294,13 +2803,21 @@ export default function App() {
                   <button 
                     type="button"
                     onClick={() => setIsFormOpen(false)}
-                    className="flex-1 px-6 py-4 border border-slate-200 text-slate-600 font-bold rounded-2xl hover:bg-slate-50 transition-all active:scale-95"
+                    className={`flex-1 px-6 py-4 font-bold rounded-2xl transition-all active:scale-95 ${
+                      isDark 
+                        ? 'border border-slate-600 text-slate-300 hover:bg-slate-700' 
+                        : 'border border-slate-200 text-slate-600 hover:bg-slate-50'
+                    }`}
                   >
                     Cancelar
                   </button>
                   <button 
                     type="submit"
-                    className="flex-1 px-6 py-4 bg-indigo-600 text-white font-bold rounded-2xl hover:bg-indigo-700 transition-all shadow-xl shadow-indigo-100 active:scale-95"
+                    className={`flex-1 px-6 py-4 font-bold rounded-2xl transition-all shadow-xl active:scale-95 ${
+                      isDark 
+                        ? 'bg-indigo-600 text-white hover:bg-indigo-500 shadow-indigo-500/30' 
+                        : 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-indigo-100'
+                    }`}
                   >
                     {editingId ? 'Salvar Alterações' : 'Confirmar Agendamento'}
                   </button>
@@ -2320,7 +2837,7 @@ export default function App() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setIsTicketFormOpen(false)}
-              className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" 
+              className="absolute inset-0 bg-slate-900/70 backdrop-blur-sm" 
             />
             <motion.div 
               initial={{ opacity: 0, scale: 0.9, y: 40, rotateX: 10 }}
@@ -2332,28 +2849,36 @@ export default function App() {
                 stiffness: 300,
                 mass: 0.8
               }}
-              className="relative bg-white w-full max-w-lg rounded-[2.5rem] shadow-2xl overflow-hidden perspective-1000"
+              className={`relative w-full max-w-lg rounded-[2.5rem] shadow-2xl overflow-hidden perspective-1000 ${
+                isDark ? 'bg-slate-800' : 'bg-white'
+              }`}
             >
-              <div className="p-8 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+              <div className={`p-8 flex justify-between items-center ${
+                isDark ? 'border-b border-slate-700' : 'border-b border-slate-100'
+              } ${isDark ? 'bg-slate-900/50' : 'bg-slate-50/50'}`}>
                 <motion.div
                   initial={{ x: -20, opacity: 0 }}
                   animate={{ x: 0, opacity: 1 }}
                   transition={{ delay: 0.1 }}
                 >
-                  <h2 className="text-2xl font-bold text-slate-900">
+                  <h2 className={`text-2xl font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>
                     {editingTicketId ? 'Editar Chamado' : 'Abrir Novo Chamado'}
                   </h2>
-                  <p className="text-xs text-slate-500 font-medium mt-1">Registre pendências SGA ou CRT para acompanhamento.</p>
+                  <p className={`text-xs font-medium mt-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Registre pendências SGA ou CRT para acompanhamento.</p>
                 </motion.div>
                 <button 
                   onClick={() => setIsTicketFormOpen(false)} 
-                  className="p-2 text-slate-400 hover:text-slate-600 hover:bg-white rounded-xl transition-all active:scale-90"
+                  className={`p-2 rounded-xl transition-all active:scale-90 ${
+                    isDark 
+                      ? 'text-slate-400 hover:text-white hover:bg-slate-700' 
+                      : 'text-slate-400 hover:text-slate-600 hover:bg-white'
+                  }`}
                 >
                   <X className="w-6 h-6" />
                 </button>
               </div>
 
-              <form onSubmit={handleTicketSubmit} className="p-8 space-y-6">
+              <form onSubmit={handleTicketSubmit} className={`p-8 space-y-6 ${isDark ? 'text-white' : 'text-slate-900'}`}>
                 <motion.div 
                   className="space-y-4"
                   initial="hidden"
@@ -2467,13 +2992,21 @@ export default function App() {
                   <button 
                     type="button"
                     onClick={() => setIsTicketFormOpen(false)}
-                    className="flex-1 px-6 py-4 rounded-2xl font-bold text-slate-500 bg-slate-100 hover:bg-slate-200 transition-all active:scale-95"
+                    className={`flex-1 px-6 py-4 rounded-2xl font-bold transition-all active:scale-95 ${
+                      isDark 
+                        ? 'text-slate-300 bg-slate-700 hover:bg-slate-600' 
+                        : 'text-slate-500 bg-slate-100 hover:bg-slate-200'
+                    }`}
                   >
                     Cancelar
                   </button>
                   <button 
                     type="submit"
-                    className="flex-[2] px-6 py-4 rounded-2xl font-bold text-white bg-indigo-600 hover:bg-indigo-700 shadow-lg shadow-indigo-100 transition-all active:scale-95"
+                    className={`flex-[2] px-6 py-4 rounded-2xl font-bold transition-all shadow-lg active:scale-95 ${
+                      isDark 
+                        ? 'text-white bg-indigo-600 hover:bg-indigo-500 shadow-indigo-500/30' 
+                        : 'text-white bg-indigo-600 hover:bg-indigo-700 shadow-indigo-100'
+                    }`}
                   >
                     {editingTicketId ? 'Salvar Alterações' : 'Abrir Chamado'}
                   </button>
@@ -2493,31 +3026,43 @@ export default function App() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setIsAgendaOpen(false)}
-              className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" 
+              className="absolute inset-0 bg-slate-900/70 backdrop-blur-sm" 
             />
             <motion.div 
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="relative bg-white w-full max-w-lg rounded-[2.5rem] shadow-2xl overflow-hidden"
+              className={`relative w-full max-w-lg rounded-[2.5rem] shadow-2xl overflow-hidden ${
+                isDark ? 'bg-slate-800' : 'bg-white'
+              }`}
             >
-              <div className="p-8 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+              <div className={`p-8 flex justify-between items-center ${
+                isDark ? 'border-b border-slate-700' : 'border-b border-slate-100'
+              } ${isDark ? 'bg-slate-900/50' : 'bg-slate-50/50'}`}>
                 <div>
-                  <h2 className="text-2xl font-bold text-slate-900 flex items-center gap-3">
-                    <CalendarRange className="w-6 h-6 text-indigo-600" />
+                  <h2 className={`text-2xl font-bold flex items-center gap-3 ${
+                    isDark ? 'text-white' : 'text-slate-900'
+                  }`}>
+                    <CalendarRange className={`w-6 h-6 ${isDark ? 'text-indigo-400' : 'text-indigo-600'}`} />
                     Agenda de Provas
                   </h2>
-                  <p className="text-xs text-slate-500 font-medium mt-1">Resumo de agendamentos por data.</p>
+                  <p className={`text-xs font-medium mt-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Resumo de agendamentos por data.</p>
                 </div>
                 <button 
                   onClick={() => setIsAgendaOpen(false)} 
-                  className="p-2 text-slate-400 hover:text-slate-600 hover:bg-white rounded-xl transition-all"
+                  className={`p-2 rounded-xl transition-all ${
+                    isDark 
+                      ? 'text-slate-400 hover:text-white hover:bg-slate-700' 
+                      : 'text-slate-400 hover:text-slate-600 hover:bg-white'
+                  }`}
                 >
                   <X className="w-6 h-6" />
                 </button>
               </div>
 
-              <div className="p-8 max-h-[60vh] overflow-y-auto custom-scrollbar">
+              <div className={`p-8 max-h-[60vh] overflow-y-auto custom-scrollbar ${
+                isDark ? 'text-white' : 'text-slate-900'
+              }`}>
                 {appointmentsByDate.length > 0 ? (
                   <div className="space-y-3">
                     {appointmentsByDate.map((group) => (
@@ -2525,28 +3070,42 @@ export default function App() {
                         key={group.date}
                         className={`p-4 rounded-2xl border flex items-center justify-between transition-all ${
                           group.date === todayStr 
-                            ? 'bg-indigo-50 border-indigo-200' 
+                            ? isDark 
+                              ? 'bg-indigo-500/20 border-indigo-500/40' 
+                              : 'bg-indigo-50 border-indigo-200'
+                            : isDark
+                            ? 'bg-slate-700/50 border-slate-700'
                             : 'bg-white border-slate-100'
                         }`}
                       >
                         <div className="flex items-center gap-4">
                           <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold text-xs ${
-                            group.date === todayStr ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-600'
+                            group.date === todayStr 
+                              ? 'bg-indigo-600 text-white' 
+                              : isDark ? 'bg-slate-600 text-slate-300' : 'bg-slate-100 text-slate-600'
                           }`}>
                             {new Date(group.date + 'T12:00:00').getDate()}
                           </div>
                           <div>
-                            <p className="font-bold text-slate-900">
+                            <p className={`font-bold ${
+                              isDark ? 'text-white' : 'text-slate-900'
+                            }`}>
                               {new Date(group.date + 'T12:00:00').toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })}
                             </p>
-                            <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">
+                            <p className={`text-[10px] font-bold uppercase tracking-widest ${
+                              isDark ? 'text-slate-500' : 'text-slate-500'
+                            }`}>
                               {group.date === todayStr ? 'Hoje' : group.date < todayStr ? 'Passado' : 'Futuro'}
                             </p>
                           </div>
                         </div>
                         <div className="text-right">
-                          <div className="text-xl font-black text-slate-900 leading-none">{group.count}</div>
-                          <div className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter mt-1">
+                          <div className={`text-xl font-black leading-none ${
+                            isDark ? 'text-white' : 'text-slate-900'
+                          }`}>{group.count}</div>
+                          <div className={`text-[9px] font-bold uppercase tracking-tighter mt-1 ${
+                            isDark ? 'text-slate-500' : 'text-slate-400'
+                          }`}>
                             {group.confirmed} confirmados
                           </div>
                         </div>
@@ -2555,16 +3114,24 @@ export default function App() {
                   </div>
                 ) : (
                   <div className="text-center py-12">
-                    <Calendar className="w-12 h-12 text-slate-200 mx-auto mb-4" />
-                    <p className="text-slate-400 font-medium">Nenhum agendamento encontrado.</p>
+                    <Calendar className={`w-12 h-12 mx-auto mb-4 ${
+                      isDark ? 'text-slate-600' : 'text-slate-200'
+                    }`} />
+                    <p className={`font-medium ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Nenhum agendamento encontrado.</p>
                   </div>
                 )}
               </div>
 
-              <div className="p-8 bg-slate-50 border-t border-slate-100">
+              <div className={`p-8 ${
+                isDark ? 'bg-slate-900/50 border-t border-slate-700' : 'bg-slate-50 border-t border-slate-100'
+              }`}>
                 <button 
                   onClick={() => setIsAgendaOpen(false)}
-                  className="w-full py-4 bg-white border border-slate-200 text-slate-600 font-bold rounded-2xl hover:bg-slate-100 transition-all active:scale-95 shadow-sm"
+                  className={`w-full py-4 font-bold rounded-2xl transition-all active:scale-95 shadow-sm ${
+                    isDark 
+                      ? 'bg-slate-700 border border-slate-600 text-slate-200 hover:bg-slate-600' 
+                      : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100'
+                  }`}
                 >
                   Fechar Agenda
                 </button>
@@ -2575,17 +3142,29 @@ export default function App() {
       </AnimatePresence>
 
       {/* Mobile Navigation */}
-      <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-100 px-6 py-3 z-40 flex items-center justify-between shadow-[0_-4px_20px_rgba(0,0,0,0.08)] backdrop-blur-lg bg-white/90">
+      <div className={`md:hidden fixed bottom-0 left-0 right-0 px-6 py-3 z-40 flex items-center justify-between shadow-[0_-4px_20px_rgba(0,0,0,0.08)] backdrop-blur-lg border-t ${
+        isDark 
+          ? 'bg-slate-900/90 border-slate-800' 
+          : 'bg-white/90 border-slate-100'
+      }`}>
         <button 
           onClick={() => setCurrentView('home')}
-          className={`flex flex-col items-center gap-1 transition-all active:scale-90 ${currentView === 'home' ? 'text-indigo-600' : 'text-slate-400'}`}
+          className={`flex flex-col items-center gap-1 transition-all active:scale-90 ${
+            currentView === 'home' 
+              ? isDark ? 'text-indigo-400' : 'text-indigo-600'
+              : isDark ? 'text-slate-500' : 'text-slate-400'
+          }`}
         >
           <Home className="w-5 h-5" />
           <span className="text-[9px] font-black uppercase tracking-tighter">Início</span>
         </button>
         <button 
           onClick={() => setCurrentView('appointments')}
-          className={`flex flex-col items-center gap-1 transition-all active:scale-90 ${currentView === 'appointments' ? 'text-indigo-600' : 'text-slate-400'}`}
+          className={`flex flex-col items-center gap-1 transition-all active:scale-90 ${
+            currentView === 'appointments' 
+              ? isDark ? 'text-indigo-400' : 'text-indigo-600'
+              : isDark ? 'text-slate-500' : 'text-slate-400'
+          }`}
         >
           <Calendar className="w-5 h-5" />
           <span className="text-[9px] font-black uppercase tracking-tighter">Agenda</span>
@@ -2594,21 +3173,31 @@ export default function App() {
         {/* Quick Add Button Mobile */}
         <button 
           onClick={() => { resetForm(); setIsFormOpen(true); }}
-          className="bg-indigo-600 text-white p-4 rounded-full -mt-10 shadow-xl shadow-indigo-200 border-4 border-white active:scale-90 transition-all"
+          className={`p-4 rounded-full -mt-10 shadow-xl border-4 active:scale-90 transition-all ${
+            isDark 
+              ? 'bg-indigo-600 text-white border-slate-900 shadow-indigo-500/30' 
+              : 'bg-indigo-600 text-white border-white shadow-indigo-200'
+          }`}
         >
           <Plus className="w-6 h-6" />
         </button>
 
         <button 
           onClick={() => setCurrentView('tickets')}
-          className={`flex flex-col items-center gap-1 transition-all active:scale-90 ${currentView === 'tickets' ? 'text-indigo-600' : 'text-slate-400'}`}
+          className={`flex flex-col items-center gap-1 transition-all active:scale-90 ${
+            currentView === 'tickets' 
+              ? isDark ? 'text-indigo-400' : 'text-indigo-600'
+              : isDark ? 'text-slate-500' : 'text-slate-400'
+          }`}
         >
           <TicketIcon className="w-5 h-5" />
           <span className="text-[9px] font-black uppercase tracking-tighter">Chamados</span>
         </button>
         <button 
           onClick={() => setIsAgendaOpen(true)}
-          className="flex flex-col items-center gap-1 text-slate-400 active:scale-90 transition-all"
+          className={`flex flex-col items-center gap-1 transition-all active:scale-90 ${
+            isDark ? 'text-slate-500' : 'text-slate-400'
+          }`}
         >
           <CalendarRange className="w-5 h-5" />
           <span className="text-[9px] font-black uppercase tracking-tighter">Resumo</span>
@@ -2645,7 +3234,376 @@ export default function App() {
         .custom-scrollbar::-webkit-scrollbar-thumb:hover {
           background: #CBD5E1;
         }
+        
+        /* Dark theme scrollbar */
+        [data-theme="dark"] .custom-scrollbar::-webkit-scrollbar-thumb {
+          background: #475569;
+        }
+        [data-theme="dark"] .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+          background: #64748B;
+        }
+        
+        /* Dark theme styles - High Contrast */
+        [data-theme="dark"] {
+          --bg-primary: #0f172a;
+          --bg-secondary: #1e293b;
+          --bg-card: #1e293b;
+          --text-primary: #ffffff;
+          --text-secondary: #e2e8f0;
+          --border-color: #475569;
+        }
+        
+        [data-theme="dark"] body,
+        [data-theme="dark"] .min-h-screen {
+          background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%) !important;
+          background-attachment: fixed;
+        }
+        
+        /* Backgrounds - Sólidos e opacos */
+        [data-theme="dark"] .bg-white,
+        [data-theme="dark"] .bg-white\/80 {
+          background-color: #1e293b !important;
+          border-color: #334155 !important;
+        }
+        
+        [data-theme="dark"] .bg-slate-50,
+        [data-theme="dark"] .bg-slate-100 {
+          background-color: #1e293b !important;
+        }
+        
+        [data-theme="dark"] .bg-slate-100\/50 {
+          background-color: rgba(30, 41, 59, 0.8) !important;
+        }
+        
+        [data-theme="dark"] .bg-slate-200,
+        [data-theme="dark"] .bg-slate-200\/50 {
+          background-color: #334155 !important;
+        }
+        
+        /* Text - Alto contraste */
+        [data-theme="dark"] .text-slate-900 {
+          color: #ffffff !important;
+        }
+        
+        [data-theme="dark"] .text-slate-800 {
+          color: #f1f5f9 !important;
+        }
+        
+        [data-theme="dark"] .text-slate-700 {
+          color: #e2e8f0 !important;
+        }
+        
+        [data-theme="dark"] .text-slate-600 {
+          color: #cbd5e1 !important;
+        }
+        
+        [data-theme="dark"] .text-slate-500 {
+          color: #94a3b8 !important;
+        }
+        
+        [data-theme="dark"] .text-slate-400 {
+          color: #94a3b8 !important;
+        }
+        
+        [data-theme="dark"] .text-slate-300 {
+          color: #cbd5e1 !important;
+        }
+        
+        [data-theme="dark"] .text-slate-200 {
+          color: #e2e8f0 !important;
+        }
+        
+        /* Borders */
+        [data-theme="dark"] .border-slate-200,
+        [data-theme="dark"] .border-slate-300,
+        [data-theme="dark"] .border-slate-100 {
+          border-color: #475569 !important;
+        }
+        
+        [data-theme="dark"] .border-slate-200\/50,
+        [data-theme="dark"] .border-slate-300\/50 {
+          border-color: rgba(71, 85, 105, 0.7) !important;
+        }
+        
+        /* Shadows */
+        [data-theme="dark"] .shadow-lg,
+        [data-theme="dark"] .shadow-xl,
+        [data-theme="dark"] .shadow-2xl {
+          --tw-shadow-color: rgba(0, 0, 0, 0.6);
+        }
+        
+        [data-theme="dark"] .shadow-indigo-100,
+        [data-theme="dark"] .shadow-indigo-200 {
+          --tw-shadow-color: rgba(99, 102, 241, 0.3);
+        }
+        
+        /* Inputs */
+        [data-theme="dark"] input,
+        [data-theme="dark"] select,
+        [data-theme="dark"] textarea {
+          background-color: #1e293b !important;
+          color: #ffffff !important;
+          border-color: #475569 !important;
+        }
+        
+        [data-theme="dark"] input::placeholder,
+        [data-theme="dark"] textarea::placeholder {
+          color: #94a3b8 !important;
+        }
+        
+        [data-theme="dark"] .form-input {
+          background-color: #1e293b !important;
+          border-color: #475569 !important;
+          color: #ffffff !important;
+        }
+        
+        [data-theme="dark"] .form-input:focus {
+          background-color: #1e293b !important;
+          border-color: #818cf8 !important;
+          box-shadow: 0 0 0 4px rgba(129, 140, 248, 0.3) !important;
+        }
+        
+        /* Links e elementos interativos */
+        [data-theme="dark"] a {
+          color: #818cf8 !important;
+        }
+        
+        [data-theme="dark"] a:hover {
+          color: #a5b4fc !important;
+        }
+        
+        /* Dividers */
+        [data-theme="dark"] hr {
+          border-color: #334155 !important;
+        }
+        
+        /* Cards */
+        [data-theme="dark"] .card {
+          background-color: #1e293b;
+          border-color: #334155;
+          color: #ffffff;
+        }
+        
+        /* Agendamentos Cards - Texto */
+        [data-theme="dark"] .space-y-3 h3,
+        [data-theme="dark"] .group h3 {
+          color: #ffffff !important;
+        }
+        
+        [data-theme="dark"] .space-y-3 p,
+        [data-theme="dark"] .group p,
+        [data-theme="dark"] .group span {
+          color: #e2e8f0 !important;
+        }
+        
+        [data-theme="dark"] .space-y-3 .text-slate-900,
+        [data-theme="dark"] .space-y-3 .text-slate-800,
+        [data-theme="dark"] .space-y-3 .text-slate-700,
+        [data-theme="dark"] .space-y-3 .text-slate-600 {
+          color: #f1f5f9 !important;
+        }
+        
+        [data-theme="dark"] .space-y-3 .text-slate-500,
+        [data-theme="dark"] .space-y-3 .text-slate-400 {
+          color: #94a3b8 !important;
+        }
+        
+        /* Badges e Tags nos Cards */
+        [data-theme="dark"] .bg-amber-50,
+        [data-theme="dark"] .bg-emerald-50,
+        [data-theme="dark"] .bg-blue-50,
+        [data-theme="dark"] .bg-red-50,
+        [data-theme="dark"] .bg-orange-50 {
+          background-color: rgba(30, 41, 59, 0.9) !important;
+        }
+        
+        [data-theme="dark"] .text-amber-700,
+        [data-theme="dark"] .text-amber-600 {
+          color: #fbbf24 !important;
+        }
+        
+        [data-theme="dark"] .text-emerald-700,
+        [data-theme="dark"] .text-emerald-600 {
+          color: #34d399 !important;
+        }
+        
+        [data-theme="dark"] .text-blue-700,
+        [data-theme="dark"] .text-blue-600 {
+          color: #60a5fa !important;
+        }
+        
+        [data-theme="dark"] .text-red-700,
+        [data-theme="dark"] .text-red-600 {
+          color: #f87171 !important;
+        }
+        
+        [data-theme="dark"] .text-orange-700,
+        [data-theme="dark"] .text-orange-600 {
+          color: #fb923c !important;
+        }
+        
+        /* Bordas dos badges */
+        [data-theme="dark"] .border-amber-100,
+        [data-theme="dark"] .border-emerald-100,
+        [data-theme="dark"] .border-blue-100,
+        [data-theme="dark"] .border-red-100,
+        [data-theme="dark"] .border-orange-100 {
+          border-color: #475569 !important;
+        }
+        
+        /* Detalhes Panel */
+        [data-theme="dark"] .bg-orange-50 {
+          background-color: rgba(251, 146, 60, 0.15) !important;
+          border-color: rgba(251, 146, 60, 0.3) !important;
+        }
+        
+        [data-theme="dark"] .text-orange-700 {
+          color: #fb923c !important;
+        }
+        
+        /* Chamados/Tickets Cards */
+        [data-theme="dark"] .space-y-2 h3 {
+          color: #ffffff !important;
+        }
+        
+        [data-theme="dark"] .space-y-2 p {
+          color: #e2e8f0 !important;
+        }
+        
+        /* Seção de Detalhes */
+        [data-theme="dark"] [class*="detail-item"] {
+          background-color: #1e293b;
+        }
+        
+        /* Ícones nos cards */
+        [data-theme="dark"] .text-slate-400 svg {
+          color: #64748b !important;
+        }
+        
+        [data-theme="dark"] .text-indigo-500 svg {
+          color: #818cf8 !important;
+        }
+        
+        /* Botões nos cards */
+        [data-theme="dark"] .bg-emerald-50 {
+          background-color: rgba(52, 211, 153, 0.15) !important;
+        }
+        
+        [data-theme="dark"] .bg-red-50 {
+          background-color: rgba(248, 113, 113, 0.15) !important;
+        }
+        
+        [data-theme="dark"] .bg-blue-50 {
+          background-color: rgba(96, 165, 250, 0.15) !important;
+        }
+        
+        [data-theme="dark"] .bg-amber-50 {
+          background-color: rgba(251, 191, 36, 0.15) !important;
+        }
+        
+        /* Status badges */
+        [data-theme="dark"] .bg-amber-100 {
+          background-color: rgba(251, 191, 36, 0.2) !important;
+        }
+        
+        [data-theme="dark"] .bg-emerald-100 {
+          background-color: rgba(52, 211, 153, 0.2) !important;
+        }
+        
+        [data-theme="dark"] .bg-blue-100 {
+          background-color: rgba(96, 165, 250, 0.2) !important;
+        }
+        
+        [data-theme="dark"] .bg-red-100 {
+          background-color: rgba(248, 113, 113, 0.2) !important;
+        }
+        
+        /* Título e cabeçalhos */
+        [data-theme="dark"] h2,
+        [data-theme="dark"] h3,
+        [data-theme="dark"] h4 {
+          color: #ffffff !important;
+        }
+        
+        /* Labels */
+        [data-theme="dark"] .text-xs {
+          color: #cbd5e1 !important;
+        }
+        
+        [data-theme="dark"] .text-\[10px\] {
+          color: #94a3b8 !important;
+        }
+        
+        [data-theme="dark"] .text-\[9px\] {
+          color: #64748b !important;
+        }
+        
+        /* Empty states */
+        [data-theme="dark"] .text-slate-500 {
+          color: #94a3b8 !important;
+        }
+        
+        [data-theme="dark"] .text-slate-400 {
+          color: #64748b !important;
+        }
+        
+        /* Select dropdowns */
+        [data-theme="dark"] select {
+          background-color: #1e293b !important;
+          color: #f1f5f9 !important;
+        }
+        
+        [data-theme="dark"] select option {
+          background-color: #1e293b !important;
+          color: #ffffff !important;
+        }
+        
+        /* Smooth transitions */
+        [data-theme="dark"] * {
+          transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+        }
+        
+        /* Dark theme animations */
+        [data-theme="dark"] .animate-pulse {
+          animation: pulse-dark 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+        
+        @keyframes pulse-dark {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.7; }
+        }
+        
+        /* Glow effects for dark mode */
+        [data-theme="dark"] .glow-indigo {
+          box-shadow: 0 0 30px rgba(99, 102, 241, 0.3), 0 0 60px rgba(99, 102, 241, 0.1);
+        }
+        
+        [data-theme="dark"] .glow-purple {
+          box-shadow: 0 0 30px rgba(168, 85, 247, 0.3), 0 0 60px rgba(168, 85, 247, 0.1);
+        }
+        
+        [data-theme="dark"] .glow-emerald {
+          box-shadow: 0 0 30px rgba(16, 185, 129, 0.3), 0 0 60px rgba(16, 185, 129, 0.1);
+        }
+        
+        /* Gradient overlays for dark mode */
+        [data-theme="dark"] .gradient-overlay {
+          background: linear-gradient(135deg, rgba(15, 23, 42, 0.95) 0%, rgba(30, 41, 59, 0.9) 50%, rgba(15, 23, 42, 0.95) 100%);
+        }
+        
+        /* Smooth transitions for theme change */
+        body, .bg-white, .bg-slate-100, .text-slate-900 {
+          transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+        }
       `}</style>
     </div>
+  );
+}
+
+export default function AppWrapper() {
+  return (
+    <ThemeProvider>
+      <App />
+    </ThemeProvider>
   );
 }

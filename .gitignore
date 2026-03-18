@@ -7,5 +7,8 @@ dist
 .DS_Store
 .vscode
 build_error.txt
+nul
+fix_search.cjs
+fix_search.py
 
 .vercel

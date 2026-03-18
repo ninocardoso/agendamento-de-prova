@@ -10,8 +10,9 @@
     "clean": "rm -rf dist",
     "lint": "tsc --noEmit",
     "test": "vitest run",
-    "atualizar": "npm run build && git add . && git commit -m \"Atualização automática\" && git push origin main",
-    "deploy": "npm run atualizar"
+    "atualizar": "npm run build && git add . && git commit -m \"Update\" && git push origin main",
+    "deploy": "npm run atualizar",
+    "vercel-deploy": "vercel --prod --yes"
   },
   "dependencies": {
     "@google/genai": "^1.29.0",

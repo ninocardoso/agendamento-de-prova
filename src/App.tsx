@@ -190,6 +190,11 @@ function App() {
   const [editingTicketId, setEditingTicketId] = useState<string | null>(null);
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [duplicateWarning, setDuplicateWarning] = useState<{
+    field: string;
+    existingApp: Appointment;
+    newExamType: ExamType;
+  } | null>(null);
   const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' | 'warning' | 'info' } | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isFetching, setIsFetching] = useState(false);
@@ -718,9 +723,10 @@ function App() {
       else if (duplicate.renach.trim().toUpperCase() === formData.renach.trim().toUpperCase()) field = 'RENACH';
       else if (duplicate.fullName.trim().toLowerCase() === formData.fullName.trim().toLowerCase()) field = 'Nome';
 
-      setNotification({
-        message: `Este ${field} já possui um agendamento de ${formData.examType} para ${duplicate.fullName}.`,
-        type: 'error'
+      setDuplicateWarning({
+        field,
+        existingApp: duplicate,
+        newExamType: formData.examType
       });
       return;
     }
@@ -3143,6 +3149,86 @@ function App() {
                   }`}
                 >
                   Fechar Agenda
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Duplicate Warning Modal */}
+      <AnimatePresence>
+        {duplicateWarning && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setDuplicateWarning(null)}
+              className="absolute inset-0 bg-slate-900/80 backdrop-blur-md" 
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className={`relative w-full max-w-md rounded-[2.5rem] shadow-2xl overflow-hidden border-2 ${
+                isDark 
+                  ? 'bg-slate-800 border-rose-500/30' 
+                  : 'bg-white border-rose-500/20'
+              }`}
+            >
+              <div className={`p-8 text-center ${isDark ? 'bg-slate-900/50' : 'bg-rose-50/30'}`}>
+                <div className={`w-20 h-20 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-lg shadow-rose-500/20 ${
+                  isDark ? 'bg-rose-500/20 text-rose-400' : 'bg-rose-100 text-rose-600'
+                }`}>
+                  <AlertCircle className="w-10 h-10" />
+                </div>
+                
+                <h2 className={`text-2xl font-black mb-2 ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                  Candidato já cadastrado!
+                </h2>
+                <p className={`text-sm font-medium ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                  O {duplicateWarning.field} informado já possui um agendamento registrado para este exame.
+                </p>
+              </div>
+
+              <div className="p-8 space-y-6">
+                <div className={`rounded-2xl p-5 border transition-all ${
+                  isDark ? 'bg-slate-900/40 border-slate-700' : 'bg-slate-50 border-slate-100'
+                }`}>
+                  <div className="space-y-4">
+                    <DetailItem 
+                      icon={<User className="w-4 h-4" />} 
+                      label="Nome do Candidato" 
+                      value={duplicateWarning.existingApp.fullName} 
+                      isDark={isDark} 
+                    />
+                    <div className="grid grid-cols-2 gap-4">
+                      <DetailItem 
+                        icon={<Calendar className="w-4 h-4" />} 
+                        label="Data da Prova" 
+                        value={new Date(duplicateWarning.existingApp.appointmentDate + 'T12:00:00').toLocaleDateString('pt-BR')} 
+                        isDark={isDark} 
+                      />
+                      <DetailItem 
+                        icon={<FileText className="w-4 h-4" />} 
+                        label="Tipo de Exame" 
+                        value={duplicateWarning.existingApp.examType} 
+                        isDark={isDark} 
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <button 
+                  onClick={() => setDuplicateWarning(null)}
+                  className={`w-full py-4 font-black uppercase tracking-widest rounded-2xl transition-all shadow-xl active:scale-95 ${
+                    isDark 
+                      ? 'bg-rose-600 text-white hover:bg-rose-500 shadow-rose-500/20' 
+                      : 'bg-rose-600 text-white hover:bg-rose-700 shadow-rose-200'
+                  }`}
+                >
+                  Entendido
                 </button>
               </div>
             </motion.div>

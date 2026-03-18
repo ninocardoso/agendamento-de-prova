@@ -153,13 +153,13 @@ export const HomeView: React.FC<HomeViewProps> = ({ appointments, tickets, onNav
             className={`p-3 rounded-xl transition-all shadow-lg ${
               isLoading 
                 ? `${isDark ? 'bg-slate-700/50' : 'bg-slate-100'} ${isDark ? 'text-slate-500' : 'text-slate-400'} cursor-not-allowed` 
-                : `${isDark ? 'bg-slate-800/80 border border-slate-700 hover:bg-slate-700' : 'bg-white border border-slate-200 hover:bg-slate-50'} ${isDark ? 'text-indigo-400' : 'text-indigo-600'} active:scale-95`
+                : `${isDark ? 'bg-slate-800 border border-slate-700 hover:bg-slate-700/80 shadow-indigo-500/10' : 'bg-white border border-slate-200 hover:bg-slate-50 shadow-indigo-100'} ${isDark ? 'text-indigo-400' : 'text-indigo-600'} active:scale-95`
             }`}
             title="Sincronizar dados"
           >
             <RefreshCw className={`w-5 h-5 ${isLoading ? 'animate-spin' : ''}`} />
           </button>
-          <div className={`px-5 py-3 rounded-xl shadow-lg ${isDark ? 'bg-slate-800/80 border border-slate-700' : 'bg-white border border-slate-200'}`}>
+          <div className={`px-5 py-3 rounded-xl shadow-lg border ${isDark ? 'bg-slate-800/80 border-slate-700 shadow-black/20' : 'bg-white border-slate-200 shadow-slate-200/50'}`}>
             <div className={`text-xs font-medium ${isDark ? 'text-slate-300' : 'text-slate-500'}`}>
               {time.toLocaleDateString('pt-BR', { weekday: 'short', day: 'numeric', month: 'short' })}
             </div>
@@ -231,7 +231,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ appointments, tickets, onNav
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.4 }}
-              className={`lg:col-span-2 rounded-2xl border overflow-hidden shadow-lg ${isDark ? 'bg-slate-800/80 border-slate-700' : 'bg-white border-slate-200/50'}`}
+              className={`lg:col-span-2 rounded-2xl border overflow-hidden shadow-lg ${isDark ? 'bg-slate-800/80 border-slate-700 shadow-black/30' : 'bg-white border-slate-200/50 shadow-slate-200/30'}`}
             >
               <div className={`p-6 border-b ${isDark ? 'border-slate-700' : 'border-slate-100'}`}>
                 <div className="flex items-center justify-between">
@@ -288,7 +288,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ appointments, tickets, onNav
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.5 }}
-              className={`rounded-2xl border overflow-hidden shadow-lg ${isDark ? 'bg-slate-800/80 border-slate-700' : 'bg-white border-slate-200/50'}`}
+              className={`rounded-2xl border overflow-hidden shadow-lg ${isDark ? 'bg-slate-800/80 border-slate-700 shadow-black/30' : 'bg-white border-slate-200/50 shadow-slate-200/30'}`}
             >
               <div className={`p-6 border-b ${isDark ? 'border-slate-700' : 'border-slate-100'}`}>
                 <h3 className={`text-lg font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>Status</h3>

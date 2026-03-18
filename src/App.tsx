@@ -1687,14 +1687,20 @@ function App() {
                 <input 
                   type="text" 
                   placeholder="Buscar..." 
-                  className="w-full pl-10 pr-10 py-3 bg-white border border-slate-200 rounded-2xl text-sm outline-none shadow-sm"
+                  className={`w-full pl-10 pr-10 py-3 rounded-2xl text-sm outline-none shadow-sm border ${
+                    isDark 
+                      ? 'bg-slate-800 border-slate-700 text-white placeholder-slate-500' 
+                      : 'bg-white border-slate-200 text-slate-900'
+                  }`}
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
                 {searchTerm && (
                   <button 
                     onClick={() => setSearchTerm('')}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-indigo-600 transition-colors p-1 hover:bg-slate-100 rounded-full"
+                    className={`absolute right-3 top-1/2 -translate-y-1/2 transition-colors p-1 rounded-full ${
+                      isDark ? 'text-slate-500 hover:text-indigo-400 hover:bg-slate-700' : 'text-slate-400 hover:text-indigo-600 hover:bg-slate-100'
+                    }`}
                     title="Limpar busca"
                   >
                     <X className="w-4 h-4" />
@@ -2002,9 +2008,12 @@ function App() {
                       animate={{ opacity: 1, scale: 1, y: 0 }}
                       exit={{ opacity: 0, scale: 0.95, y: 20 }}
                       transition={{ type: "spring", damping: 25, stiffness: 200 }}
-                      className="fixed inset-x-4 bottom-4 top-20 z-50 lg:relative lg:inset-auto lg:z-0 bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-2xl lg:shadow-xl flex flex-col"
+                      className={`fixed inset-x-4 bottom-4 top-20 z-50 lg:relative lg:inset-auto lg:z-0 rounded-3xl border overflow-hidden shadow-2xl lg:shadow-xl flex flex-col ${
+                        isDark ? 'bg-slate-800 border-slate-700 shadow-black/40' : 'bg-white border-slate-200 shadow-slate-200/40'
+                      }`}
+
                     >
-                        <div className="p-6 border-b border-slate-100 bg-white shrink-0">
+                        <div className={`p-6 border-b shrink-0 ${isDark ? 'border-slate-700 bg-slate-900/40' : 'border-slate-100 bg-white'}`}>
                           <div className="flex justify-between items-start mb-6">
                             <button 
                               onClick={() => setSelectedAppointment(null)}
@@ -2661,7 +2670,7 @@ function App() {
                       value={formData.serviceType}
                       onChange={handleInputChange}
                       className="form-input appearance-none bg-no-repeat bg-[right_1rem_center]"
-                      style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2394a3b8' stroke-width='2'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")`, backgroundSize: '1.25rem' }}
+                      style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='${isDark ? '%2364748b' : '%2394a3b8'}' stroke-width='2'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")`, backgroundSize: '1.25rem' }}
                     >
                       <option value="151 – 1ª Habilitação Veicular (2 rodas)">1ª Habilitação A</option>
                       <option value="151 – 1ª Habilitação Veicular (4 rodas)">1ª Habilitação B</option>
@@ -2682,7 +2691,7 @@ function App() {
                       value={formData.category}
                       onChange={handleInputChange}
                       className="form-input appearance-none bg-no-repeat bg-[right_1rem_center]"
-                      style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2394a3b8' stroke-width='2'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")`, backgroundSize: '1.25rem' }}
+                      style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='${isDark ? '%2364748b' : '%2394a3b8'}' stroke-width='2'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")`, backgroundSize: '1.25rem' }}
                     >
                       <option value="A">A</option>
                       <option value="B">B</option>
@@ -2700,7 +2709,7 @@ function App() {
                       value={formData.examType}
                       onChange={handleInputChange}
                       className="form-input appearance-none bg-no-repeat bg-[right_1rem_center]"
-                      style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2394a3b8' stroke-width='2'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")`, backgroundSize: '1.25rem' }}
+                      style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='${isDark ? '%2364748b' : '%2394a3b8'}' stroke-width='2'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")`, backgroundSize: '1.25rem' }}
                     >
                       <option value="Legislação">Legislação</option>
                       <option value="Prova de Rua">Prova de Rua</option>
@@ -3204,398 +3213,6 @@ function App() {
         </button>
       </div>
 
-      <style>{`
-        .form-input {
-          width: 100%;
-          padding: 0.875rem 1.25rem;
-          background-color: #F8FAFC;
-          border: 1px solid #E2E8F0;
-          border-radius: 1rem;
-          font-size: 0.875rem;
-          font-weight: 500;
-          transition: all 0.2s;
-          outline: none;
-        }
-        .form-input:focus {
-          background-color: white;
-          border-color: #6366F1;
-          box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1);
-        }
-        .custom-scrollbar::-webkit-scrollbar {
-          width: 6px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-track {
-          background: transparent;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb {
-          background: #E2E8F0;
-          border-radius: 10px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-          background: #CBD5E1;
-        }
-        
-        /* Dark theme scrollbar */
-        [data-theme="dark"] .custom-scrollbar::-webkit-scrollbar-thumb {
-          background: #475569;
-        }
-        [data-theme="dark"] .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-          background: #64748B;
-        }
-        
-        /* Dark theme styles - High Contrast */
-        [data-theme="dark"] {
-          --bg-primary: #0f172a;
-          --bg-secondary: #1e293b;
-          --bg-card: #1e293b;
-          --text-primary: #ffffff;
-          --text-secondary: #e2e8f0;
-          --border-color: #475569;
-        }
-        
-        [data-theme="dark"] body,
-        [data-theme="dark"] .min-h-screen {
-          background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%) !important;
-          background-attachment: fixed;
-        }
-        
-        /* Backgrounds - Sólidos e opacos */
-        [data-theme="dark"] .bg-white,
-        [data-theme="dark"] .bg-white\/80 {
-          background-color: #1e293b !important;
-          border-color: #334155 !important;
-        }
-        
-        [data-theme="dark"] .bg-slate-50,
-        [data-theme="dark"] .bg-slate-100 {
-          background-color: #1e293b !important;
-        }
-        
-        [data-theme="dark"] .bg-slate-100\/50 {
-          background-color: rgba(30, 41, 59, 0.8) !important;
-        }
-        
-        [data-theme="dark"] .bg-slate-200,
-        [data-theme="dark"] .bg-slate-200\/50 {
-          background-color: #334155 !important;
-        }
-        
-        /* Text - Alto contraste */
-        [data-theme="dark"] .text-slate-900 {
-          color: #ffffff !important;
-        }
-        
-        [data-theme="dark"] .text-slate-800 {
-          color: #f1f5f9 !important;
-        }
-        
-        [data-theme="dark"] .text-slate-700 {
-          color: #e2e8f0 !important;
-        }
-        
-        [data-theme="dark"] .text-slate-600 {
-          color: #cbd5e1 !important;
-        }
-        
-        [data-theme="dark"] .text-slate-500 {
-          color: #94a3b8 !important;
-        }
-        
-        [data-theme="dark"] .text-slate-400 {
-          color: #94a3b8 !important;
-        }
-        
-        [data-theme="dark"] .text-slate-300 {
-          color: #cbd5e1 !important;
-        }
-        
-        [data-theme="dark"] .text-slate-200 {
-          color: #e2e8f0 !important;
-        }
-        
-        /* Borders */
-        [data-theme="dark"] .border-slate-200,
-        [data-theme="dark"] .border-slate-300,
-        [data-theme="dark"] .border-slate-100 {
-          border-color: #475569 !important;
-        }
-        
-        [data-theme="dark"] .border-slate-200\/50,
-        [data-theme="dark"] .border-slate-300\/50 {
-          border-color: rgba(71, 85, 105, 0.7) !important;
-        }
-        
-        /* Shadows */
-        [data-theme="dark"] .shadow-lg,
-        [data-theme="dark"] .shadow-xl,
-        [data-theme="dark"] .shadow-2xl {
-          --tw-shadow-color: rgba(0, 0, 0, 0.6);
-        }
-        
-        [data-theme="dark"] .shadow-indigo-100,
-        [data-theme="dark"] .shadow-indigo-200 {
-          --tw-shadow-color: rgba(99, 102, 241, 0.3);
-        }
-        
-        /* Inputs */
-        [data-theme="dark"] input,
-        [data-theme="dark"] select,
-        [data-theme="dark"] textarea {
-          background-color: #1e293b !important;
-          color: #ffffff !important;
-          border-color: #475569 !important;
-        }
-        
-        [data-theme="dark"] input::placeholder,
-        [data-theme="dark"] textarea::placeholder {
-          color: #94a3b8 !important;
-        }
-        
-        [data-theme="dark"] .form-input {
-          background-color: #1e293b !important;
-          border-color: #475569 !important;
-          color: #ffffff !important;
-        }
-        
-        [data-theme="dark"] .form-input:focus {
-          background-color: #1e293b !important;
-          border-color: #818cf8 !important;
-          box-shadow: 0 0 0 4px rgba(129, 140, 248, 0.3) !important;
-        }
-        
-        /* Links e elementos interativos */
-        [data-theme="dark"] a {
-          color: #818cf8 !important;
-        }
-        
-        [data-theme="dark"] a:hover {
-          color: #a5b4fc !important;
-        }
-        
-        /* Dividers */
-        [data-theme="dark"] hr {
-          border-color: #334155 !important;
-        }
-        
-        /* Cards */
-        [data-theme="dark"] .card {
-          background-color: #1e293b;
-          border-color: #334155;
-          color: #ffffff;
-        }
-        
-        /* Agendamentos Cards - Texto */
-        [data-theme="dark"] .space-y-3 h3,
-        [data-theme="dark"] .group h3 {
-          color: #ffffff !important;
-        }
-        
-        [data-theme="dark"] .space-y-3 p,
-        [data-theme="dark"] .group p,
-        [data-theme="dark"] .group span {
-          color: #e2e8f0 !important;
-        }
-        
-        [data-theme="dark"] .space-y-3 .text-slate-900,
-        [data-theme="dark"] .space-y-3 .text-slate-800,
-        [data-theme="dark"] .space-y-3 .text-slate-700,
-        [data-theme="dark"] .space-y-3 .text-slate-600 {
-          color: #f1f5f9 !important;
-        }
-        
-        [data-theme="dark"] .space-y-3 .text-slate-500,
-        [data-theme="dark"] .space-y-3 .text-slate-400 {
-          color: #94a3b8 !important;
-        }
-        
-        /* Badges e Tags nos Cards */
-        [data-theme="dark"] .bg-amber-50,
-        [data-theme="dark"] .bg-emerald-50,
-        [data-theme="dark"] .bg-blue-50,
-        [data-theme="dark"] .bg-red-50,
-        [data-theme="dark"] .bg-orange-50 {
-          background-color: rgba(30, 41, 59, 0.9) !important;
-        }
-        
-        [data-theme="dark"] .text-amber-700,
-        [data-theme="dark"] .text-amber-600 {
-          color: #fbbf24 !important;
-        }
-        
-        [data-theme="dark"] .text-emerald-700,
-        [data-theme="dark"] .text-emerald-600 {
-          color: #34d399 !important;
-        }
-        
-        [data-theme="dark"] .text-blue-700,
-        [data-theme="dark"] .text-blue-600 {
-          color: #60a5fa !important;
-        }
-        
-        [data-theme="dark"] .text-red-700,
-        [data-theme="dark"] .text-red-600 {
-          color: #f87171 !important;
-        }
-        
-        [data-theme="dark"] .text-orange-700,
-        [data-theme="dark"] .text-orange-600 {
-          color: #fb923c !important;
-        }
-        
-        /* Bordas dos badges */
-        [data-theme="dark"] .border-amber-100,
-        [data-theme="dark"] .border-emerald-100,
-        [data-theme="dark"] .border-blue-100,
-        [data-theme="dark"] .border-red-100,
-        [data-theme="dark"] .border-orange-100 {
-          border-color: #475569 !important;
-        }
-        
-        /* Detalhes Panel */
-        [data-theme="dark"] .bg-orange-50 {
-          background-color: rgba(251, 146, 60, 0.15) !important;
-          border-color: rgba(251, 146, 60, 0.3) !important;
-        }
-        
-        [data-theme="dark"] .text-orange-700 {
-          color: #fb923c !important;
-        }
-        
-        /* Chamados/Tickets Cards */
-        [data-theme="dark"] .space-y-2 h3 {
-          color: #ffffff !important;
-        }
-        
-        [data-theme="dark"] .space-y-2 p {
-          color: #e2e8f0 !important;
-        }
-        
-        /* Seção de Detalhes */
-        [data-theme="dark"] [class*="detail-item"] {
-          background-color: #1e293b;
-        }
-        
-        /* Ícones nos cards */
-        [data-theme="dark"] .text-slate-400 svg {
-          color: #64748b !important;
-        }
-        
-        [data-theme="dark"] .text-indigo-500 svg {
-          color: #818cf8 !important;
-        }
-        
-        /* Botões nos cards */
-        [data-theme="dark"] .bg-emerald-50 {
-          background-color: rgba(52, 211, 153, 0.15) !important;
-        }
-        
-        [data-theme="dark"] .bg-red-50 {
-          background-color: rgba(248, 113, 113, 0.15) !important;
-        }
-        
-        [data-theme="dark"] .bg-blue-50 {
-          background-color: rgba(96, 165, 250, 0.15) !important;
-        }
-        
-        [data-theme="dark"] .bg-amber-50 {
-          background-color: rgba(251, 191, 36, 0.15) !important;
-        }
-        
-        /* Status badges */
-        [data-theme="dark"] .bg-amber-100 {
-          background-color: rgba(251, 191, 36, 0.2) !important;
-        }
-        
-        [data-theme="dark"] .bg-emerald-100 {
-          background-color: rgba(52, 211, 153, 0.2) !important;
-        }
-        
-        [data-theme="dark"] .bg-blue-100 {
-          background-color: rgba(96, 165, 250, 0.2) !important;
-        }
-        
-        [data-theme="dark"] .bg-red-100 {
-          background-color: rgba(248, 113, 113, 0.2) !important;
-        }
-        
-        /* Título e cabeçalhos */
-        [data-theme="dark"] h2,
-        [data-theme="dark"] h3,
-        [data-theme="dark"] h4 {
-          color: #ffffff !important;
-        }
-        
-        /* Labels */
-        [data-theme="dark"] .text-xs {
-          color: #cbd5e1 !important;
-        }
-        
-        [data-theme="dark"] .text-\[10px\] {
-          color: #94a3b8 !important;
-        }
-        
-        [data-theme="dark"] .text-\[9px\] {
-          color: #64748b !important;
-        }
-        
-        /* Empty states */
-        [data-theme="dark"] .text-slate-500 {
-          color: #94a3b8 !important;
-        }
-        
-        [data-theme="dark"] .text-slate-400 {
-          color: #64748b !important;
-        }
-        
-        /* Select dropdowns */
-        [data-theme="dark"] select {
-          background-color: #1e293b !important;
-          color: #f1f5f9 !important;
-        }
-        
-        [data-theme="dark"] select option {
-          background-color: #1e293b !important;
-          color: #ffffff !important;
-        }
-        
-        /* Smooth transitions */
-        [data-theme="dark"] * {
-          transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
-        }
-        
-        /* Dark theme animations */
-        [data-theme="dark"] .animate-pulse {
-          animation: pulse-dark 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-        }
-        
-        @keyframes pulse-dark {
-          0%, 100% { opacity: 1; }
-          50% { opacity: 0.7; }
-        }
-        
-        /* Glow effects for dark mode */
-        [data-theme="dark"] .glow-indigo {
-          box-shadow: 0 0 30px rgba(99, 102, 241, 0.3), 0 0 60px rgba(99, 102, 241, 0.1);
-        }
-        
-        [data-theme="dark"] .glow-purple {
-          box-shadow: 0 0 30px rgba(168, 85, 247, 0.3), 0 0 60px rgba(168, 85, 247, 0.1);
-        }
-        
-        [data-theme="dark"] .glow-emerald {
-          box-shadow: 0 0 30px rgba(16, 185, 129, 0.3), 0 0 60px rgba(16, 185, 129, 0.1);
-        }
-        
-        /* Gradient overlays for dark mode */
-        [data-theme="dark"] .gradient-overlay {
-          background: linear-gradient(135deg, rgba(15, 23, 42, 0.95) 0%, rgba(30, 41, 59, 0.9) 50%, rgba(15, 23, 42, 0.95) 100%);
-        }
-        
-        /* Smooth transitions for theme change */
-        body, .bg-white, .bg-slate-100, .text-slate-900 {
-          transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
-        }
-      `}</style>
     </div>
   );
 }

@@ -1,37 +1,30 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useEffect, useState } from 'react';
 import { 
-  BarChart, 
-  Bar, 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip, 
-  ResponsiveContainer, 
-  PieChart, 
-  Pie, 
+  AreaChart, 
+  Area,
+  PieChart,
+  Pie,
   Cell,
-  LineChart,
-  Line,
-  AreaChart,
-  Area
+  CartesianGrid,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer
 } from 'recharts';
 import { 
   Users, 
   Calendar, 
-  CheckCircle2, 
-  XCircle, 
-  AlertCircle, 
+  CheckCircle2,
   TrendingUp, 
-  Clock,
-  ArrowUpRight,
-  ArrowDownRight,
   FileText,
-  Database,
   RefreshCw,
-  Ticket as TicketIcon
+  Ticket as TicketIcon,
+  Activity,
+  Clock
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { Appointment, Ticket } from '../types';
+import { useTheme } from '../contexts/ThemeContext';
 
 interface HomeViewProps {
   appointments: Appointment[];
@@ -42,20 +35,33 @@ interface HomeViewProps {
   lastSyncTime: string | null;
 }
 
-const COLORS = ['#4f46e5', '#10b981', '#f59e0b', '#ef4444', '#6366f1'];
+const COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ef4444'];
+const COLORS_DARK = ['#818cf8', '#34d399', '#fbbf24', '#f87171'];
 
 export const HomeView: React.FC<HomeViewProps> = ({ appointments, tickets, onNavigate, onSync, isLoading, lastSyncTime }) => {
+  const { isDark } = useTheme();
+  const [time, setTime] = useState(new Date());
+  
+  useEffect(() => {
+    const timer = setInterval(() => setTime(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
   const stats = useMemo(() => {
-    const total = appointments.length;
-    const confirmed = appointments.filter(a => a.isConfirmed).length;
-    const pending = total - confirmed;
-    const sgaCrt = tickets.length;
-    const requestSent = appointments.filter(a => a.isRequestSent).length;
+    let total = 0, confirmed = 0, pending = 0, requestSent = 0, today = 0;
+    const todayStr = new Date().toISOString().split('T')[0];
+    
+    for (const app of appointments) {
+      total++;
+      if (app.isConfirmed) confirmed++;
+      else pending++;
+      if (app.isRequestSent) requestSent++;
+      if (app.appointmentDate === todayStr) today++;
+    }
     
     const confirmedRate = total > 0 ? (confirmed / total) * 100 : 0;
-    const requestSentRate = total > 0 ? (requestSent / total) * 100 : 0;
     
-    return { total, confirmed, pending, sgaCrt, confirmedRate, requestSent, requestSentRate };
+    return { total, confirmed, pending, requestSent, confirmedRate, today, sgaCrt: tickets.length };
   }, [appointments, tickets]);
 
   const chartData = useMemo(() => {
@@ -63,19 +69,20 @@ export const HomeView: React.FC<HomeViewProps> = ({ appointments, tickets, onNav
     const now = new Date();
     
     for (let i = 6; i >= 0; i--) {
-      const d = new Date();
+      const d = new Date(now);
       d.setDate(now.getDate() - i);
       const dateStr = d.toISOString().split('T')[0];
-      const displayDate = d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+      const displayDate = d.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' });
       last7Days[dateStr] = { date: displayDate, total: 0, confirmed: 0 };
     }
 
-    appointments.forEach(app => {
-      if (last7Days[app.appointmentDate]) {
-        last7Days[app.appointmentDate].total++;
-        if (app.isConfirmed) last7Days[app.appointmentDate].confirmed++;
+    for (const app of appointments) {
+      const day = last7Days[app.appointmentDate];
+      if (day) {
+        day.total++;
+        if (app.isConfirmed) day.confirmed++;
       }
-    });
+    }
 
     return Object.values(last7Days);
   }, [appointments]);
@@ -87,68 +94,112 @@ export const HomeView: React.FC<HomeViewProps> = ({ appointments, tickets, onNav
 
   const examTypeData = useMemo(() => {
     const types: Record<string, number> = {};
-    appointments.forEach(app => {
+    for (const app of appointments) {
       types[app.examType] = (types[app.examType] || 0) + 1;
-    });
+    }
     return Object.entries(types).map(([name, value]) => ({ name, value }));
   }, [appointments]);
 
+  const chartColors = isDark ? COLORS_DARK : COLORS;
+
   return (
-    <div className="col-span-1 lg:col-span-12 space-y-8 pb-12">
-      {/* Header Section */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+    <div className="col-span-1 lg:col-span-12 space-y-6 pb-12">
+      {/* Header com relógio */}
+      <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4">
         <motion.div 
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
         >
-          <h2 className="text-3xl font-black text-slate-900 tracking-tight">Painel de Controle</h2>
-          <p className="text-slate-500 font-medium">Bem-vindo ao sistema de gestão DETRAN-BA.</p>
+          <div className="flex items-center gap-3 mb-2">
+            <div className="relative">
+              <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg ${
+                isDark 
+                  ? 'bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-600 shadow-indigo-500/40' 
+                  : 'bg-gradient-to-br from-indigo-500 to-purple-600 shadow-lg shadow-indigo-500/30'
+              }`}>
+                <Activity className="w-6 h-6 text-white" />
+              </div>
+              <div className={`absolute -inset-1 rounded-2xl ${isDark ? 'bg-gradient-to-br from-indigo-500/20 to-purple-500/20 blur-sm' : ''}`} />
+            </div>
+            <div>
+              <h2 className={`text-2xl lg:text-3xl font-black ${
+                isDark 
+                  ? 'bg-gradient-to-r from-white via-indigo-200 to-purple-200 bg-clip-text text-transparent' 
+                  : 'bg-gradient-to-r from-slate-900 to-slate-600 bg-clip-text text-transparent'
+              }`}>
+                Dashboard
+              </h2>
+              <div className="flex items-center gap-2 text-xs">
+                <span className="relative flex h-2 w-2">
+                  <span className={`animate-ping absolute inline-flex h-full w-full rounded-full ${isDark ? 'bg-emerald-400' : 'bg-emerald-400'} opacity-75`}></span>
+                  <span className={`relative inline-flex rounded-full h-2 w-2 ${isDark ? 'bg-emerald-500' : 'bg-emerald-500'}`}></span>
+                </span>
+                <span className={isDark ? 'text-emerald-400 font-medium' : 'text-emerald-600 font-medium'}>Live</span>
+                <span className={isDark ? 'text-slate-500' : 'text-slate-400'}>•</span>
+                <span className={`font-mono ${isDark ? 'text-indigo-400' : 'text-slate-500'}`}>{time.toLocaleTimeString('pt-BR')}</span>
+              </div>
+            </div>
+          </div>
         </motion.div>
+        
         <motion.div 
           initial={{ opacity: 0, x: 20 }}
           animate={{ opacity: 1, x: 0 }}
-          className="flex items-center gap-3 bg-white p-1.5 rounded-2xl border border-slate-100 shadow-sm"
+          className="flex items-center gap-3"
         >
           <button 
             onClick={onSync}
             disabled={isLoading}
-            className={`p-2 rounded-xl transition-all ${isLoading ? 'bg-slate-50 text-slate-300' : 'bg-indigo-50 text-indigo-600 hover:bg-indigo-100 active:scale-95'}`}
+            className={`p-3 rounded-xl transition-all shadow-lg ${
+              isLoading 
+                ? `${isDark ? 'bg-slate-700/50' : 'bg-slate-100'} ${isDark ? 'text-slate-500' : 'text-slate-400'} cursor-not-allowed` 
+                : `${isDark ? 'bg-slate-800/80 border border-slate-700 hover:bg-slate-700' : 'bg-white border border-slate-200 hover:bg-slate-50'} ${isDark ? 'text-indigo-400' : 'text-indigo-600'} active:scale-95`
+            }`}
             title="Sincronizar dados"
           >
-            <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-5 h-5 ${isLoading ? 'animate-spin' : ''}`} />
           </button>
-          <div className="px-4 py-2 bg-slate-50 text-slate-600 rounded-xl text-xs font-black uppercase tracking-widest border border-slate-100 flex flex-col items-center">
-            <span>{new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' })}</span>
-            {lastSyncTime && <span className="text-[9px] text-indigo-500 mt-0.5">Sincronizado às {lastSyncTime}</span>}
+          <div className={`px-5 py-3 rounded-xl shadow-lg ${isDark ? 'bg-slate-800/80 border border-slate-700' : 'bg-white border border-slate-200'}`}>
+            <div className={`text-xs font-medium ${isDark ? 'text-slate-300' : 'text-slate-500'}`}>
+              {time.toLocaleDateString('pt-BR', { weekday: 'short', day: 'numeric', month: 'short' })}
+            </div>
+            {lastSyncTime && (
+              <div className={`flex items-center gap-1.5 text-[10px] font-medium mt-0.5 ${isDark ? 'text-indigo-400' : 'text-indigo-500'}`}>
+                <Clock className="w-3 h-3" />
+                Sync {lastSyncTime}
+              </div>
+            )}
           </div>
         </motion.div>
       </div>
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+      {/* Stats Cards - Grid Moderno */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          { label: 'Total Agendamentos', value: stats.total, icon: Users, color: 'indigo', trend: '+12%', up: true },
-          { label: 'Confirmados', value: stats.confirmed, icon: CheckCircle2, color: 'emerald', trend: `${stats.confirmedRate.toFixed(0)}%`, up: true },
-          { label: 'Pedidos Enviados', value: stats.requestSent, icon: TrendingUp, color: 'amber', trend: `${stats.requestSentRate.toFixed(0)}%`, up: true },
-          { label: 'Chamados SGA/CRT', value: stats.sgaCrt, icon: Database, color: 'rose', trend: '+2', up: true },
+          { label: 'Total', value: stats.total, icon: Users, gradient: 'from-indigo-500 to-indigo-600', trend: `${stats.total} registros`, glow: 'hover:shadow-indigo-500/20' },
+          { label: 'Confirmados', value: stats.confirmed, icon: CheckCircle2, gradient: 'from-emerald-500 to-emerald-600', trend: `${stats.confirmedRate.toFixed(0)}% do total`, glow: 'hover:shadow-emerald-500/20' },
+          { label: 'Para Hoje', value: stats.today, icon: Calendar, gradient: 'from-amber-500 to-orange-500', trend: 'agendamentos', glow: 'hover:shadow-amber-500/20' },
+          { label: 'SGA/CRT', value: stats.sgaCrt, icon: TicketIcon, gradient: 'from-purple-500 to-pink-500', trend: 'chamados', glow: 'hover:shadow-purple-500/20' },
         ].map((stat, i) => (
           <motion.div
             key={stat.label}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: i * 0.1 }}
-            className="bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-sm hover:shadow-md transition-all group"
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: i * 0.1, type: "spring" }}
+            className={`relative group overflow-hidden rounded-2xl ${isDark ? 'bg-slate-800/80 border border-slate-700' : 'bg-white border border-slate-200/50'} shadow-lg hover:shadow-xl ${stat.glow} transition-all duration-300`}
           >
-            <div className="flex justify-between items-start mb-4">
-              <div className={`p-3 rounded-2xl bg-${stat.color}-50 text-${stat.color}-600 group-hover:scale-110 transition-transform`}>
-                <stat.icon className="w-6 h-6" />
+            <div className={`absolute inset-0 bg-gradient-to-br ${stat.gradient} opacity-[0.03] group-hover:opacity-[0.08] transition-opacity`} />
+            <div className="relative p-5">
+              <div className="flex items-start justify-between mb-3">
+                <div className={`p-2.5 rounded-xl bg-gradient-to-br ${stat.gradient} shadow-lg`}>
+                  <stat.icon className="w-5 h-5 text-white" />
+                </div>
               </div>
-              <div className={`flex items-center gap-1 text-xs font-bold ${stat.up ? 'text-emerald-600' : 'text-rose-600'}`}>
-                {stat.trend} {stat.up ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
-              </div>
+              <p className={`text-3xl lg:text-4xl font-black mb-1 ${isDark ? 'text-white' : 'text-slate-900'}`}>{stat.value}</p>
+              <p className={`text-xs font-bold uppercase tracking-wider ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{stat.label}</p>
+              <p className={`text-[10px] mt-1 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{stat.trend}</p>
             </div>
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">{stat.label}</p>
-            <p className="text-3xl font-black text-slate-900">{stat.value}</p>
+            <div className={`absolute -bottom-1 -right-1 w-20 h-20 bg-gradient-to-tl ${stat.gradient} opacity-5 rounded-tl-full`} />
           </motion.div>
         ))}
       </div>
@@ -157,200 +208,205 @@ export const HomeView: React.FC<HomeViewProps> = ({ appointments, tickets, onNav
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-white p-12 rounded-[3rem] border border-dashed border-slate-200 text-center space-y-4"
+          className={`p-12 rounded-3xl border text-center space-y-4 ${isDark ? 'bg-slate-800/50 border-slate-700' : 'bg-gradient-to-br from-slate-50 to-slate-100 border-slate-200'}`}
         >
-          <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mx-auto">
-            <Calendar className="w-10 h-10 text-slate-300" />
+          <div className={`w-20 h-20 rounded-2xl flex items-center justify-center mx-auto ${isDark ? 'bg-slate-700' : 'bg-gradient-to-br from-indigo-100 to-purple-100'}`}>
+            <Calendar className={`w-10 h-10 ${isDark ? 'text-indigo-400' : 'text-indigo-400'}`} />
           </div>
-          <h3 className="text-xl font-black text-slate-900">Nenhum dado para exibir</h3>
-          <p className="text-slate-500 max-w-xs mx-auto font-medium">Comece adicionando seu primeiro agendamento para ver as estatísticas aqui.</p>
+          <h3 className={`text-xl font-bold ${isDark ? 'text-white' : 'text-slate-700'}`}>Sistema Pronto</h3>
+          <p className={`max-w-md mx-auto ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Adicione seu primeiro agendamento para visualizar as estatísticas.</p>
           <button 
             onClick={() => onNavigate('appointments')}
-            className="px-8 py-3 bg-indigo-600 text-white rounded-2xl font-bold shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition-all active:scale-95"
+            className="px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl font-bold shadow-lg shadow-indigo-500/30 hover:shadow-xl hover:scale-105 transition-all"
           >
-            Ir para Agendamentos
+            Começar
           </button>
         </motion.div>
       ) : (
         <>
-          {/* Charts Section */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Charts Row */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Main Chart */}
             <motion.div 
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.4 }}
-              className="lg:col-span-2 bg-white p-8 rounded-[3rem] border border-slate-100 shadow-sm"
+              className={`lg:col-span-2 rounded-2xl border overflow-hidden shadow-lg ${isDark ? 'bg-slate-800/80 border-slate-700' : 'bg-white border-slate-200/50'}`}
             >
-              <div className="flex items-center justify-between mb-8">
-                <div>
-                  <h3 className="text-xl font-black text-slate-900 tracking-tight">Fluxo de Agendamentos</h3>
-                  <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">Últimos 7 dias</p>
-                </div>
-                <div className="flex items-center gap-4">
-                  <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-full bg-indigo-600" />
-                    <span className="text-[10px] font-black text-slate-500 uppercase">Total</span>
+              <div className={`p-6 border-b ${isDark ? 'border-slate-700' : 'border-slate-100'}`}>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className={`text-lg font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>Fluxo de Agendamentos</h3>
+                    <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-400'}`}>Últimos 7 dias</p>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-full bg-emerald-500" />
-                    <span className="text-[10px] font-black text-slate-500 uppercase">Confirmados</span>
+                  <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-2">
+                      <div className="w-2.5 h-2.5 rounded-full bg-indigo-500" />
+                      <span className={`text-[10px] font-semibold ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Total</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+                      <span className={`text-[10px] font-semibold ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Confirmados</span>
+                    </div>
                   </div>
                 </div>
               </div>
-              <div className="h-[300px] w-full">
+              <div className="h-[280px] p-4">
                 <ResponsiveContainer width="100%" height="100%">
                   <AreaChart data={chartData}>
                     <defs>
-                      <linearGradient id="colorTotal" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#4f46e5" stopOpacity={0.1}/>
-                        <stop offset="95%" stopColor="#4f46e5" stopOpacity={0}/>
+                      <linearGradient id="gradTotal" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor={isDark ? "#818cf8" : "#6366f1"} stopOpacity={0.15}/>
+                        <stop offset="95%" stopColor={isDark ? "#818cf8" : "#6366f1"} stopOpacity={0}/>
                       </linearGradient>
-                      <linearGradient id="colorConfirmed" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#10b981" stopOpacity={0.1}/>
-                        <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                      <linearGradient id="gradConfirmed" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor={isDark ? "#34d399" : "#10b981"} stopOpacity={0.15}/>
+                        <stop offset="95%" stopColor={isDark ? "#34d399" : "#10b981"} stopOpacity={0}/>
                       </linearGradient>
                     </defs>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                    <XAxis 
-                      dataKey="date" 
-                      axisLine={false} 
-                      tickLine={false} 
-                      tick={{ fontSize: 10, fontWeight: 700, fill: '#94a3b8' }}
-                      dy={10}
-                    />
-                    <YAxis 
-                      axisLine={false} 
-                      tickLine={false} 
-                      tick={{ fontSize: 10, fontWeight: 700, fill: '#94a3b8' }}
-                    />
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={isDark ? "#334155" : "#f1f5f9"} />
+                    <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fontSize: 11, fontWeight: 600, fill: isDark ? '#94a3b8' : '#94a3b8' }} dy={10} />
+                    <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fontWeight: 600, fill: isDark ? '#94a3b8' : '#94a3b8' }} />
                     <Tooltip 
-                      contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
+                      contentStyle={{ 
+                        borderRadius: '12px', 
+                        border: isDark ? '1px solid #475569' : '1px solid #e2e8f0', 
+                        backgroundColor: isDark ? '#1e293b' : 'white',
+                        boxShadow: '0 10px 40px -10px rgba(0,0,0,0.2)'
+                      }}
+                      labelStyle={{ fontWeight: 700, color: isDark ? '#f1f5f9' : '#1e293b' }}
                     />
-                    <Area type="monotone" dataKey="total" stroke="#4f46e5" strokeWidth={3} fillOpacity={1} fill="url(#colorTotal)" />
-                    <Area type="monotone" dataKey="confirmed" stroke="#10b981" strokeWidth={3} fillOpacity={1} fill="url(#colorConfirmed)" />
+                    <Area type="monotone" dataKey="total" stroke={isDark ? "#818cf8" : "#6366f1"} strokeWidth={2.5} fill="url(#gradTotal)" />
+                    <Area type="monotone" dataKey="confirmed" stroke={isDark ? "#34d399" : "#10b981"} strokeWidth={2.5} fill="url(#gradConfirmed)" />
                   </AreaChart>
                 </ResponsiveContainer>
               </div>
             </motion.div>
 
-            {/* Distribution Chart */}
+            {/* Pie Chart */}
             <motion.div 
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.5 }}
-              className="bg-white p-8 rounded-[3rem] border border-slate-100 shadow-sm flex flex-col"
+              className={`rounded-2xl border overflow-hidden shadow-lg ${isDark ? 'bg-slate-800/80 border-slate-700' : 'bg-white border-slate-200/50'}`}
             >
-              <h3 className="text-xl font-black text-slate-900 tracking-tight mb-1">Status Geral</h3>
-              <p className="text-xs text-slate-400 font-bold uppercase tracking-widest mb-8">Distribuição de Confirmações</p>
-              
-              <div className="flex-1 h-[200px] relative">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={pieData}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={60}
-                      outerRadius={80}
-                      paddingAngle={5}
-                      dataKey="value"
-                    >
-                      {pieData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip />
-                  </PieChart>
-                </ResponsiveContainer>
-                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                  <span className="text-2xl font-black text-slate-900">{stats.confirmedRate.toFixed(0)}%</span>
-                  <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Confirmado</span>
-                </div>
+              <div className={`p-6 border-b ${isDark ? 'border-slate-700' : 'border-slate-100'}`}>
+                <h3 className={`text-lg font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>Status</h3>
+                <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-400'}`}>Visão geral</p>
               </div>
-
-              <div className="space-y-3 mt-8">
-                {pieData.map((item, i) => (
-                  <div key={item.name} className="flex items-center justify-between p-3 bg-slate-50 rounded-2xl border border-slate-100">
-                    <div className="flex items-center gap-3">
-                      <div className="w-2 h-2 rounded-full" style={{ backgroundColor: COLORS[i] }} />
-                      <span className="text-xs font-bold text-slate-600">{item.name}</span>
-                    </div>
-                    <span className="text-xs font-black text-slate-900">{item.value}</span>
+              <div className="p-6">
+                <div className="h-[180px] relative">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={pieData}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={55}
+                        outerRadius={75}
+                        paddingAngle={4}
+                        dataKey="value"
+                      >
+                        {pieData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={chartColors[index % chartColors.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip />
+                    </PieChart>
+                  </ResponsiveContainer>
+                  <div className="absolute inset-0 flex flex-col items-center justify-center">
+                    <span className={`text-3xl font-black ${isDark ? 'text-white' : 'text-slate-900'}`}>{stats.confirmedRate.toFixed(0)}%</span>
+                    <span className={`text-[9px] font-bold uppercase tracking-wider ${isDark ? 'text-slate-400' : 'text-slate-400'}`}>Confirmado</span>
                   </div>
-                ))}
+                </div>
+                <div className="space-y-2 mt-4">
+                  {pieData.map((item, i) => (
+                    <div key={item.name} className={`flex items-center justify-between p-3 rounded-xl ${isDark ? 'bg-slate-700/50' : 'bg-slate-50'}`}>
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: chartColors[i] }} />
+                        <span className={`text-xs font-semibold ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>{item.name}</span>
+                      </div>
+                      <span className={`text-sm font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>{item.value}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
             </motion.div>
           </div>
 
-          {/* Quick Actions & Recent */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          {/* Bottom Row */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Quick Actions */}
             <motion.div 
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.6 }}
-              className="bg-indigo-600 p-8 rounded-[3rem] text-white shadow-xl shadow-indigo-100 relative overflow-hidden group"
+              className={`bg-gradient-to-br from-indigo-600 via-indigo-500 to-purple-600 p-6 rounded-2xl text-white shadow-xl relative overflow-hidden ${isDark ? 'shadow-indigo-500/20' : 'shadow-indigo-500/20'}`}
             >
-              <div className="relative z-10">
-                <h3 className="text-2xl font-black mb-2">Acesso Rápido</h3>
-                <p className="text-indigo-100 mb-8 font-medium">Gerencie seus agendamentos e chamados com um clique.</p>
-                
-                <div className="grid grid-cols-2 gap-4">
+              <div className="absolute -right-8 -bottom-8 w-40 h-40 bg-white/10 rounded-full blur-2xl" />
+              <div className="absolute -left-4 -top-4 w-24 h-24 bg-purple-400/20 rounded-full blur-xl" />
+              <div className="relative">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="p-2 bg-white/20 rounded-xl backdrop-blur-sm">
+                    <TrendingUp className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold">Acesso Rápido</h3>
+                    <p className="text-indigo-100 text-xs">Navegue rapidamente</p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
                   <button 
                     onClick={() => onNavigate('appointments')}
-                    className="bg-white/10 hover:bg-white/20 backdrop-blur-md p-4 rounded-2xl border border-white/20 transition-all flex flex-col gap-3 group/btn"
+                    className="flex items-center gap-3 p-4 bg-white/10 hover:bg-white/20 backdrop-blur-sm rounded-xl transition-all group"
                   >
-                    <Calendar className="w-6 h-6 group-hover/btn:scale-110 transition-transform" />
-                    <span className="font-bold text-sm">Agendamentos</span>
+                    <Calendar className="w-5 h-5 group-hover:scale-110 transition-transform" />
+                    <span className="font-semibold text-sm">Agendamentos</span>
                   </button>
                   <button 
                     onClick={() => onNavigate('tickets')}
-                    className="bg-white/10 hover:bg-white/20 backdrop-blur-md p-4 rounded-2xl border border-white/20 transition-all flex flex-col gap-3 group/btn"
+                    className="flex items-center gap-3 p-4 bg-white/10 hover:bg-white/20 backdrop-blur-sm rounded-xl transition-all group"
                   >
-                    <TicketIcon className="w-6 h-6 group-hover/btn:scale-110 transition-transform" />
-                    <span className="font-bold text-sm">Chamados</span>
+                    <TicketIcon className="w-5 h-5 group-hover:scale-110 transition-transform" />
+                    <span className="font-semibold text-sm">Chamados</span>
                   </button>
                 </div>
               </div>
-              
-              {/* Decorative elements */}
-              <div className="absolute -right-12 -bottom-12 w-48 h-48 bg-white/10 rounded-full blur-3xl group-hover:scale-150 transition-transform duration-1000" />
-              <div className="absolute -left-12 -top-12 w-32 h-32 bg-indigo-400/20 rounded-full blur-2xl" />
             </motion.div>
 
+            {/* Exam Types */}
             <motion.div 
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.7 }}
-              className="bg-white p-8 rounded-[3rem] border border-slate-100 shadow-sm"
+              className={`rounded-2xl border overflow-hidden shadow-lg ${isDark ? 'bg-slate-800/80 border-slate-700' : 'bg-white border-slate-200/50'}`}
             >
-              <div className="flex items-center justify-between mb-8">
-                <h3 className="text-xl font-black text-slate-900 tracking-tight">Tipos de Exame</h3>
-                <TrendingUp className="w-5 h-5 text-indigo-600" />
+              <div className={`p-6 border-b ${isDark ? 'border-slate-700' : 'border-slate-100'}`}>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className={`text-lg font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>Tipos de Exame</h3>
+                    <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-400'}`}>Distribuição</p>
+                  </div>
+                  <FileText className={`w-5 h-5 ${isDark ? 'text-indigo-400' : 'text-indigo-500'}`} />
+                </div>
               </div>
-              
-              <div className="space-y-4">
+              <div className="p-6 space-y-4">
                 {examTypeData.map((item, i) => (
                   <div key={item.name} className="space-y-2">
-                    <div className="flex justify-between text-xs font-bold">
-                      <span className="text-slate-600">{item.name}</span>
-                      <span className="text-slate-900">{item.value}</span>
+                    <div className="flex justify-between text-sm font-semibold">
+                      <span className={isDark ? 'text-slate-300' : 'text-slate-600'}>{item.name}</span>
+                      <span className={isDark ? 'text-white' : 'text-slate-900'}>{item.value}</span>
                     </div>
-                    <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                    <div className={`h-2.5 rounded-full overflow-hidden ${isDark ? 'bg-slate-700' : 'bg-slate-100'}`}>
                       <motion.div 
                         initial={{ width: 0 }}
                         animate={{ width: `${(item.value / stats.total) * 100}%` }}
-                        transition={{ duration: 1, delay: 0.8 + (i * 0.1) }}
-                        className="h-full bg-indigo-600 rounded-full"
+                        transition={{ duration: 0.8, delay: 0.8 + (i * 0.1) }}
+                        className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full"
                       />
                     </div>
                   </div>
                 ))}
-                {examTypeData.length === 0 && (
-                  <div className="text-center py-8 text-slate-400 italic text-sm">
-                    Nenhum dado disponível.
-                  </div>
-                )}
               </div>
             </motion.div>
           </div>
